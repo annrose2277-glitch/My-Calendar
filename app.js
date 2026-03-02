@@ -763,7 +763,7 @@ function createEventCard(ev, showDate = false) {
                 borderRadius: "999px",
                 fontWeight: "900",
                 fontSize: "12px",
-                zIndex: "100",
+                zIndex: "9999",
                 maxWidth: "calc(100% - 24px)",
                 textAlign: "center"
             });
