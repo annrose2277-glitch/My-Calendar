@@ -1,6 +1,10 @@
 ![image](https://github.com/user-attachments/assets/60c8f362-3d60-4898-8c3a-c3519656325b)
 # 🗓️ My-Calendar
 
+
+🔗 **Live Demo:** [Click Here](https://nimamaria.github.io/My-Calendar/)
+
+
 A lightweight calendar app for managing events. No bloat—just a clean calendar that works in your browser.
 
 <img width="1877" height="909" alt="My-calendar-photo" src="https://github.com/user-attachments/assets/bbd3815d-f12e-48b8-b2cf-e2bcba1b1200" />
