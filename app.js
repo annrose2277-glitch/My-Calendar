@@ -11,7 +11,8 @@
         grid: $("grid"),
         searchInput: $("searchInput"),
         dayLabel: $("dayLabel"),
-        dayList: $("dayList"),
+        selectedEvents: $("selectedEvents"),
+        upcomingEvents: $("upcomingEvents"),
 
         addBtn: $("addBtn"),
         editBtn: $("editBtn"),
@@ -335,66 +336,97 @@
     }
 
     function renderDayPanel() {
-        const d = new Date(selectedDate + "T00:00:00");
-        els.dayLabel.textContent = d.toLocaleDateString(undefined, {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        });
 
-        const q = (els.searchInput.value || "").trim().toLowerCase();
-        const dayEvents = getEventsOnDate(selectedDate)
-            .filter(ev => !q || formatSearch(ev).includes(q))
-            .sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+    const selectedContainer = els.selectedEvents;
+    const upcomingContainer = els.upcomingEvents;
 
-        els.dayList.innerHTML = "";
+    selectedContainer.innerHTML = "";
+    upcomingContainer.innerHTML = "";
 
-        if (!dayEvents.length) {
-            const empty = document.createElement("div");
-            empty.className = "day-item";
-            empty.innerHTML = `<div class="top"><div class="title">No events</div><div class="tag">—</div></div><div class="meta">Click "Add Event" to create one.</div>`;
-            empty.addEventListener("click", () => openModalForDate(selectedDate));
-            els.dayList.appendChild(empty);
-            return;
-        }
+    const selected = new Date(selectedDate + "T00:00:00");
 
+    els.dayLabel.textContent = selected.toLocaleDateString(undefined, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    });
+
+    const q = (els.searchInput.value || "").trim().toLowerCase();
+
+    // ===== SELECTED DAY EVENTS =====
+    const dayEvents = getEventsOnDate(selectedDate)
+        .filter(ev => !q || formatSearch(ev).includes(q))
+        .sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+
+    if (!dayEvents.length) {
+        selectedContainer.innerHTML = `<div class="day-item">No events for this day.</div>`;
+    } else {
         dayEvents.forEach(ev => {
-            const item = document.createElement("div");
-            item.className = "day-item" + (selectedEventId === ev.id ? " selected" : "");
-            if (ev.color && ev.color !== "default") {
-                item.dataset.color = ev.color;
-            }
-
-            let tag = "All day";
-            if (ev.start && ev.end) {
-                if (ev.endDate && ev.endDate !== ev.date) {
-                    tag = `${ev.start} – ${ev.end}`;
-                } else {
-                    tag = `${ev.start}–${ev.end}`;
-                }
-            }
-
-            item.innerHTML = `
-                <div class="top">
-                    <div class="title">${escapeHtml(ev.title)}</div>
-                    <div class="tag">${escapeHtml(tag)}</div>
-                </div>
-                <div class="meta">
-                    ${ev.remindMode === "popup" ? "🔔 Popup reminder enabled<br/>" : ""}
-                    ${ev.description ? escapeHtml(ev.description) : ""}
-                </div>
-            `;
-
-            item.addEventListener("click", () => {
-                selectedEventId = ev.id;
-                renderDayPanel();
-            });
-
-            els.dayList.appendChild(item);
+            const item = createEventCard(ev);
+            selectedContainer.appendChild(item);
         });
     }
 
+    // ===== UPCOMING EVENTS =====
+    const upcoming = events
+    .filter(ev => ev.date > selectedDate)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 5);
+
+    if (!upcoming.length) {
+        upcomingContainer.innerHTML = `<div class="day-item">No upcoming events.</div>`;
+    } else {
+        upcoming.forEach(ev => {
+            const item = createEventCard(ev, true);
+            upcomingContainer.appendChild(item);
+        });
+    }
+}
+function createEventCard(ev, showDate = false) {
+
+    const item = document.createElement("div");
+    item.className = "day-item";
+
+    if (ev.color && ev.color !== "default") {
+        item.dataset.color = ev.color;
+    }
+
+    let tag = "All day";
+    if (ev.start && ev.end) {
+        tag = `${ev.start} – ${ev.end}`;
+    }
+
+    const dateText = showDate ? `<div class="meta">${ev.date}</div>` : "";
+
+    item.innerHTML = `
+        <div class="event-row">
+            <div class="event-info">
+                <div class="title">${escapeHtml(ev.title)}</div>
+                ${dateText}
+                <div class="tag">${escapeHtml(tag)}</div>
+            </div>
+
+            <div class="event-actions">
+                <button class="pill-btn edit-btn">Edit</button>
+                <button class="pill-btn delete-btn">Delete</button>
+            </div>
+        </div>
+    `;
+
+    item.querySelector(".edit-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        openModalForEdit(ev.id);
+    });
+
+    item.querySelector(".delete-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        editingId = ev.id;
+        onDelete();
+    });
+
+    return item;
+}
     // ---------- MODAL ----------
     function openModalForDate(dateKey) {
         editingId = null;

@@ -24,38 +24,38 @@
           <h2>Calendar</h2>
           <p class="muted">Click a date to view events. Select an event to Edit/Delete from the side.</p>
 
-          <!-- Month/Year moved here (top of calendar) -->
           <div class="monthbar">
             <button id="prevBtn" class="btn" type="button" aria-label="Previous month">←</button>
             
-           <div class="month-year-group">
-           <select id="monthSelect" class="month-select" aria-label="Select month">
-  <option value="0">January</option>
-  <option value="1">February</option>
-  <option value="2">March</option>
-  <option value="3">April</option>
-  <option value="4">May</option>
-  <option value="5">June</option>
-  <option value="6">July</option>
-  <option value="7">August</option>
-  <option value="8">September</option>
-  <option value="9">October</option>
-  <option value="10">November</option>
-  <option value="11">December</option>
-</select>
-           <select id="yearSelect" class="year-select" aria-label="Select year"></select>
-           </div>
+            <div class="month-year-group">
+              <select id="monthSelect" class="month-select" aria-label="Select month">
+                <option value="0">January</option>
+                <option value="1">February</option>
+                <option value="2">March</option>
+                <option value="3">April</option>
+                <option value="4">May</option>
+                <option value="5">June</option>
+                <option value="6">July</option>
+                <option value="7">August</option>
+                <option value="8">September</option>
+                <option value="9">October</option>
+                <option value="10">November</option>
+                <option value="11">December</option>
+              </select>
+
+              <select id="yearSelect" class="year-select" aria-label="Select year"></select>
+            </div>
 
             <button id="nextBtn" class="btn" type="button" aria-label="Next month">→</button>
             <button id="todayBtn" class="btn ghost" type="button">Today</button>
           </div>
         </div>
 
-          <div class="head-right">
-            <input id="searchInput" class="search" type="search" placeholder="Search events…" />
-            <button id="themeToggle" class="btn ghost" type="button">🌙 Dark</button>
-          </div>
+        <div class="head-right">
+          <input id="searchInput" class="search" type="search" placeholder="Search events…" />
+          <button id="themeToggle" class="btn ghost" type="button">🌙 Dark</button>
         </div>
+      </div>
 
       <div class="dow">
         <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
@@ -65,28 +65,46 @@
     </section>
 
     <aside class="panel side">
-      <div class="panel-head">
-        <h2>Selected Day</h2>
-        <p id="dayLabel" class="muted">—</p>
+
+  <!-- Selected Day -->
+  <div class="panel-head">
+    <h2>Selected Day</h2>
+    <p id="dayLabel" class="muted">—</p>
+  </div>
+
+  <div id="selectedEvents" class="day-list"></div>
+
+  <!-- Upcoming Events -->
+  <div class="panel-head">
+    <h2>Upcoming Events</h2>
+  </div>
+
+  <div id="upcomingEvents" class="day-list"></div>
+
+      <!-- UPDATED SECTION -->
+      <div class="day-section">
+        <!-- Selected Day Events -->
+        <div id="selectedEvents" class="day-list"></div>
+
+        <!-- Upcoming Events -->
+        
+        <div id="upcomingEvents" class="day-list"></div>
       </div>
 
-      <div id="dayList" class="day-list"></div>
-
-      <!-- SIDE BUTTONS: Add/Edit/Delete/Export -->
       <div class="panel-foot">
         <button id="addBtn" class="btn primary" type="button">+ Add Event</button>
         <button id="editBtn" class="btn" type="button">Edit</button>
         <button id="deleteSideBtn" class="btn danger" type="button">Delete</button>
         <button id="exportBtn" class="btn ghost" type="button">📥 Export</button>
         <button id="clearAllBtn" class="btn clear-custom" type="button">
-  Clear All Events
-</button>
+          Clear All Events
+        </button>
       </div>
     </aside>
   </main>
 
-  <!-- Modal -->
   <div id="backdrop" class="backdrop" hidden></div>
+
   <dialog id="eventModal" class="modal" aria-labelledby="modalTitle">
     <form id="eventForm" class="modal-form" method="dialog">
       <div class="modal-head">
@@ -137,9 +155,8 @@
               <option value="off">Off</option>
               <option value="popup">Popup (Yesterday + Today)</option>
             </select>
-            <div class="hint">Popup will show once per day for events with Reminder enabled.</div>
           </label>
-  
+
           <label class="field">
             <span>Color</span>
             <select id="colorInput">

@@ -1030,3 +1030,88 @@ body.dark #repeatOptions {
   background: rgba(255, 255, 255, 0.03);
   border-color: #475569;
 }
+/* ===== EVENT ROW LAYOUT ===== */
+
+.event-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.event-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== PILL BUTTON STYLE ===== */
+
+.pill-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.pill-btn.edit-btn {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.pill-btn.edit-btn:hover {
+  background: #c7d2fe;
+}
+
+.pill-btn.delete-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pill-btn.delete-btn:hover {
+  background: #fecaca;
+}
+
+/* DARK MODE SUPPORT */
+
+body.dark .pill-btn.edit-btn {
+  background: #1e3a8a;
+  color: #dbeafe;
+}
+
+body.dark .pill-btn.delete-btn {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+/* ===== CLEAN SIDE PANEL FIX ===== */
+
+.panel.side {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel.side .panel-head {
+  margin-bottom: 24px;
+}
+
+.upcoming-heading {
+  margin: 28px 0 18px 0;
+}
+
+.panel.side h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #5b6aa5;
+}
+
+body.dark .panel.side h2 {
+  color: #f1f5f9;
+}
