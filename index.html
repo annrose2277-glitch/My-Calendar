@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +8,7 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/png" sizes="192x194" href="images/android-chrome-512x512.png">
 </head>
+
 <body>
   <header class="topbar">
     <div class="brand">
@@ -17,16 +19,22 @@
     </div>
   </header>
 
+  <div id="notifBanner" class="notif-banner" hidden>
+    <span>🔔 Enable notifications to get reminders for your events — even when this tab is in the background.</span>
+    <div class="notif-banner-actions">
+      <button id="notifAllowBtn" class="btn primary" type="button">Enable Notifications</button>
+      <button id="notifDismissBtn" class="btn ghost" type="button">Dismiss</button>
+    </div>
+  </div>
+
   <main class="wrap">
     <section class="panel">
       <div class="panel-head">
         <div>
           <h2>Calendar</h2>
           <p class="muted">Click a date to view events. Select an event to Edit/Delete from the side.</p>
-
           <div class="monthbar">
             <button id="prevBtn" class="btn" type="button" aria-label="Previous month">←</button>
-            
             <div class="month-year-group">
               <select id="monthSelect" class="month-select" aria-label="Select month">
                 <option value="0">January</option>
@@ -42,15 +50,12 @@
                 <option value="10">November</option>
                 <option value="11">December</option>
               </select>
-
               <select id="yearSelect" class="year-select" aria-label="Select year"></select>
             </div>
-
             <button id="nextBtn" class="btn" type="button" aria-label="Next month">→</button>
             <button id="todayBtn" class="btn ghost" type="button">Today</button>
           </div>
         </div>
-
         <div class="head-right">
           <input id="searchInput" class="search" type="search" placeholder="Search events…" />
           <button id="themeToggle" class="btn ghost" type="button">🌙 Dark</button>
@@ -65,40 +70,23 @@
     </section>
 
     <aside class="panel side">
-
-  <!-- Selected Day -->
-  <div class="panel-head">
-    <h2>Selected Day</h2>
-    <p id="dayLabel" class="muted">—</p>
-  </div>
-
-  <div id="selectedEvents" class="day-list"></div>
-
-  <!-- Upcoming Events -->
-  <div class="panel-head">
-    <h2>Upcoming Events</h2>
-  </div>
-
-  <div id="upcomingEvents" class="day-list"></div>
-
-      <!-- UPDATED SECTION -->
-      <div class="day-section">
-        <!-- Selected Day Events -->
-        <div id="selectedEvents" class="day-list"></div>
-
-        <!-- Upcoming Events -->
-        
-        <div id="upcomingEvents" class="day-list"></div>
+      <div class="panel-head">
+        <h2>Selected Day</h2>
+        <p id="dayLabel" class="muted">—</p>
       </div>
+      <div id="selectedEvents" class="day-list"></div>
+
+      <div class="panel-head upcoming-heading">
+        <h2>Upcoming Events</h2>
+      </div>
+      <div id="upcomingEvents" class="day-list"></div>
 
       <div class="panel-foot">
         <button id="addBtn" class="btn primary" type="button">+ Add Event</button>
         <button id="editBtn" class="btn" type="button">Edit</button>
         <button id="deleteSideBtn" class="btn danger" type="button">Delete</button>
         <button id="exportBtn" class="btn ghost" type="button">📥 Export</button>
-        <button id="clearAllBtn" class="btn clear-custom" type="button">
-          Clear All Events
-        </button>
+        <button id="clearAllBtn" class="btn clear-custom" type="button">Clear All Events</button>
       </div>
     </aside>
   </main>
@@ -153,8 +141,12 @@
             <span>Reminder</span>
             <select id="remindInput">
               <option value="off">Off</option>
-              <option value="popup">Popup (Yesterday + Today)</option>
+              <option value="popup">Popup (day-of alert on open)</option>
+              <option value="60">🔔 Notify 1 hour before</option>
+              <option value="30">🔔 Notify 30 mins before</option>
+              <option value="15">🔔 Notify 15 mins before</option>
             </select>
+            <div class="hint">Passive (🔔) reminders fire as OS notifications even when the tab is backgrounded. Requires notification permission.</div>
           </label>
 
           <label class="field">
