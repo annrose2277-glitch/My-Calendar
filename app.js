@@ -82,12 +82,12 @@
     function registerServiceWorker() {
         if (!("serviceWorker" in navigator)) return;
         navigator.serviceWorker.register("sw.js")
-            .then(reg => {
-                navigator.serviceWorker.addEventListener("message", e => {
-                    if (e.data && e.data.type === "SW_LOG") console.log("[SW → Page]", e.data.msg);
+            .then(function () {
+                navigator.serviceWorker.addEventListener("message", function (e) {
+                    if (e.data && e.data.type === "SW_LOG") console.log("[SW]", e.data.msg);
                 });
             })
-            .catch(err => console.error("[SW] Registration FAILED:", err));
+            .catch(function (err) { console.error("[SW] Registration FAILED:", err); });
     }
 
     // ─── NOTIFICATION BANNER ─────────────────────────────────────────────────
@@ -99,8 +99,8 @@
 
         els.notifBanner.hidden = false;
 
-        els.notifAllowBtn.addEventListener("click", () => {
-            Notification.requestPermission().then(perm => {
+        els.notifAllowBtn.addEventListener("click", function () {
+            Notification.requestPermission().then(function (perm) {
                 els.notifBanner.hidden = true;
                 if (perm === "granted") {
                     toast("🔔 Notifications enabled!");
@@ -112,7 +112,7 @@
             });
         });
 
-        els.notifDismissBtn.addEventListener("click", () => {
+        els.notifDismissBtn.addEventListener("click", function () {
             els.notifBanner.hidden = true;
             localStorage.setItem(BANNER_DISMISSED_KEY, "1");
         });
@@ -121,44 +121,60 @@
     // ─── SYNC TO SW ──────────────────────────────────────────────────────────
     function syncEventsToSW() {
         if (!("caches" in window)) return;
-        caches.open("calendar-data-v1").then(cache => {
-            cache.put("events", new Response(JSON.stringify(events), { headers: { "Content-Type": "application/json" } }));
-            cache.put("notif-sent", new Response(JSON.stringify(getNotifSent()), { headers: { "Content-Type": "application/json" } }));
-        }).catch(err => console.error("[Cache] Failed:", err));
+        caches.open("calendar-data-v1").then(function (cache) {
+            cache.put("events", new Response(JSON.stringify(events),
+                { headers: { "Content-Type": "application/json" } }));
+            cache.put("notif-sent", new Response(JSON.stringify(getNotifSent()),
+                { headers: { "Content-Type": "application/json" } }));
+        }).catch(function (err) { console.error("[Cache] Failed:", err); });
     }
 
     // ─── PASSIVE REMINDERS ───────────────────────────────────────────────────
-    function getNotifSent() { try { return JSON.parse(localStorage.getItem(NOTIF_SENT_KEY) || "{}"); } catch { return {}; } }
-    function setNotifSent(obj) { localStorage.setItem(NOTIF_SENT_KEY, JSON.stringify(obj)); }
+    function getNotifSent() {
+        try { return JSON.parse(localStorage.getItem(NOTIF_SENT_KEY) || "{}"); }
+        catch (e) { return {}; }
+    }
+    function setNotifSent(obj) {
+        localStorage.setItem(NOTIF_SENT_KEY, JSON.stringify(obj));
+    }
 
     function checkPassiveReminders() {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-        const now = new Date(), todayKey = toDateKey(now), nowMs = now.getTime();
-        const sent = getNotifSent();
-        let dirty = false;
+        var now = new Date(), todayKey = toDateKey(now), nowMs = now.getTime();
+        var sent = getNotifSent();
+        var dirty = false;
 
-        Object.keys(sent).forEach(k => { if (!k.startsWith(todayKey)) { delete sent[k]; dirty = true; } });
+        Object.keys(sent).forEach(function (k) {
+            if (!k.startsWith(todayKey)) { delete sent[k]; dirty = true; }
+        });
 
-        getEventsOnDate(todayKey).forEach(ev => {
-            const mins = parseInt(ev.remindMode, 10);
+        getEventsOnDate(todayKey).forEach(function (ev) {
+            var mins = parseInt(ev.remindMode, 10);
             if (!ev.start || isNaN(mins)) return;
 
-            const eventMs = new Date(ev.date + "T" + ev.start).getTime();
-            const diffMins = (eventMs - nowMs) / 60_000;
-            const sentKey = todayKey + "_" + ev.id + "_" + mins;
+            var eventMs = new Date(ev.date + "T" + ev.start).getTime();
+            var diffMins = (eventMs - nowMs) / 60000;
+            var sentKey = todayKey + "_" + ev.id + "_" + mins;
 
             if (diffMins <= 0 || diffMins > mins || sent[sentKey]) return;
 
-            const roundedMins = Math.round(diffMins);
-            const timeLabel = roundedMins >= 60 ? "1 hour" : roundedMins + " minute" + (roundedMins !== 1 ? "s" : "");
-            const notifTitle = "⏰ " + ev.title;
-            const notifBody = "Starting in about " + timeLabel;
+            var roundedMins = Math.round(diffMins);
+            var timeLabel = roundedMins >= 60
+                ? "1 hour"
+                : roundedMins + " minute" + (roundedMins !== 1 ? "s" : "");
+            var notifTitle = "⏰ " + ev.title;
+            var notifBody = "Starting in about " + timeLabel;
 
             if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({ type: "SHOW_NOTIFICATION", title: notifTitle, body: notifBody, tag: sentKey, icon: "images/android-chrome-512x512.png" });
+                navigator.serviceWorker.controller.postMessage({
+                    type: "SHOW_NOTIFICATION", title: notifTitle, body: notifBody,
+                    tag: sentKey, icon: "images/android-chrome-512x512.png"
+                });
             } else {
-                try { new Notification(notifTitle, { body: notifBody, tag: sentKey, icon: "images/android-chrome-512x512.png" }); } catch (err) { console.error(err); }
+                try { new Notification(notifTitle, { body: notifBody, tag: sentKey,
+                    icon: "images/android-chrome-512x512.png" }); }
+                catch (err) { console.error(err); }
             }
 
             sent[sentKey] = true;
@@ -171,323 +187,593 @@
 
     // ─── DROPDOWNS ───────────────────────────────────────────────────────────
     function initYearDropdown() {
-        const cur = new Date().getFullYear();
-        for (let y = cur - 50; y <= cur + 50; y++) {
-            const opt = document.createElement("option"); opt.value = y; opt.textContent = y;
+        var cur = new Date().getFullYear();
+        els.yearSelect.innerHTML = "";
+        for (var y = cur - 50; y <= cur + 50; y++) {
+            var opt = document.createElement("option");
+            opt.value = y; opt.textContent = y;
             els.yearSelect.appendChild(opt);
         }
         els.yearSelect.value = viewDate.getFullYear();
-        els.yearSelect.addEventListener("change", function () { viewDate = new Date(parseInt(this.value), viewDate.getMonth(), 1); render(); });
+        els.yearSelect.addEventListener("change", function () {
+            viewDate = new Date(parseInt(this.value), viewDate.getMonth(), 1);
+            render();
+        });
     }
 
     function initMonthDropdown() {
-        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-        els.monthSelect.innerHTML = "";
-        months.forEach((m, i) => { const opt = document.createElement("option"); opt.value = i; opt.textContent = m; els.monthSelect.appendChild(opt); });
+        /* Options already exist in HTML — just sync value and bind */
         els.monthSelect.value = viewDate.getMonth();
-        els.monthSelect.addEventListener("change", function () { viewDate = new Date(viewDate.getFullYear(), parseInt(this.value), 1); render(); });
+        els.monthSelect.addEventListener("change", function () {
+            viewDate = new Date(viewDate.getFullYear(), parseInt(this.value), 1);
+            render();
+        });
     }
 
     // ─── BINDINGS ────────────────────────────────────────────────────────────
     function bind() {
-        els.prevBtn.addEventListener("click", () => { viewDate = addMonths(viewDate, -1); render(); });
-        els.nextBtn.addEventListener("click", () => { viewDate = addMonths(viewDate, 1); render(); });
-        els.todayBtn.addEventListener("click", () => { viewDate = new Date(); selectedDate = toDateKey(new Date()); selectedEventId = null; render(); renderDayPanel(); });
-        els.searchInput.addEventListener("input", () => { render(); renderDayPanel(); });
-        els.addBtn.addEventListener("click", () => openModalForDate(selectedDate));
-        els.editBtn.addEventListener("click", () => { if (!selectedEventId) return toast("Select an event first"); openModalForEdit(selectedEventId); });
-        els.deleteSideBtn.addEventListener("click", () => { if (!selectedEventId) return toast("Select an event first"); editingId = selectedEventId; onDelete(); });
+        els.prevBtn.addEventListener("click", function () {
+            viewDate = addMonths(viewDate, -1); render();
+        });
+        els.nextBtn.addEventListener("click", function () {
+            viewDate = addMonths(viewDate, 1); render();
+        });
+        els.todayBtn.addEventListener("click", function () {
+            viewDate = new Date();
+            selectedDate = toDateKey(new Date());
+            selectedEventId = null;
+            render(); renderDayPanel();
+        });
+        els.searchInput.addEventListener("input", function () {
+            render(); renderDayPanel();
+        });
+        els.addBtn.addEventListener("click", function () {
+            openModalForDate(selectedDate);
+        });
+        els.editBtn.addEventListener("click", function () {
+            if (!selectedEventId) return toast("Select an event first");
+            openModalForEdit(selectedEventId);
+        });
+        els.deleteSideBtn.addEventListener("click", function () {
+            if (!selectedEventId) return toast("Select an event first");
+            editingId = selectedEventId; onDelete();
+        });
         els.exportBtn.addEventListener("click", exportEvents);
-        els.importBtn.addEventListener("click", () => els.importModal.showModal());
-        els.clearAllBtn.addEventListener("click", () => { if (!confirm("Are you sure you want to delete ALL events?")) return; events = []; saveEvents(events); selectedEventId = null; render(); renderDayPanel(); toast("All events cleared"); });
+        els.importBtn.addEventListener("click", function () {
+            resetImportModal();
+            els.importModal.showModal();
+        });
+        els.clearAllBtn.addEventListener("click", function () {
+            if (!confirm("Are you sure you want to delete ALL events?")) return;
+            events = []; saveEvents(events); selectedEventId = null;
+            render(); renderDayPanel(); toast("All events cleared");
+        });
         els.closeBtn.addEventListener("click", closeModal);
         els.cancelBtn.addEventListener("click", closeModal);
         els.backdrop.addEventListener("click", closeModal);
-        els.eventForm.addEventListener("submit", e => { e.preventDefault(); onSave(); });
+        els.eventForm.addEventListener("submit", function (e) {
+            e.preventDefault(); onSave();
+        });
         els.deleteBtn.addEventListener("click", onDelete);
-        ["dateInput","endDateInput","startInput","endInput"].forEach(id => $(id).addEventListener("input", () => updateConflictWarning(editingId)));
+
+        ["dateInput", "endDateInput", "startInput", "endInput"].forEach(function (id) {
+            $(id).addEventListener("input", function () {
+                updateConflictWarning(editingId);
+            });
+        });
     }
 
     // ─── RENDER CALENDAR ─────────────────────────────────────────────────────
     function render() {
-        let anyMatch = false;
-        const y = viewDate.getFullYear(), m = viewDate.getMonth();
-        els.yearSelect.value = y; els.monthSelect.value = m;
+        var anyMatch = false;
+        var y = viewDate.getFullYear(), m = viewDate.getMonth();
+        els.yearSelect.value = y;
+        els.monthSelect.value = m;
 
-        const startDay = new Date(y, m, 1).getDay();
-        const daysInMonth = new Date(y, m + 1, 0).getDate();
-        const cells = [];
-        for (let i = 0; i < startDay; i++) cells.push({ empty: true });
-        for (let d = 1; d <= daysInMonth; d++) cells.push({ empty: false, date: new Date(y, m, d) });
+        var startDay = new Date(y, m, 1).getDay();
+        var daysInMonth = new Date(y, m + 1, 0).getDate();
+        var cells = [];
+        var i, d;
+
+        for (i = 0; i < startDay; i++) cells.push({ empty: true });
+        for (d = 1; d <= daysInMonth; d++) cells.push({ empty: false, date: new Date(y, m, d) });
         while (cells.length % 7 !== 0) cells.push({ empty: true });
         while (cells.length < 42) cells.push({ empty: true });
 
-        const q = (els.searchInput.value || "").trim().toLowerCase();
+        var q = (els.searchInput.value || "").trim().toLowerCase();
         els.grid.innerHTML = "";
 
-        cells.forEach(cellData => {
-            const cell = document.createElement("div");
-            if (cellData.empty) { cell.className = "cell empty"; cell.innerHTML = `<div class="date"><span></span><span></span></div>`; els.grid.appendChild(cell); return; }
+        cells.forEach(function (cellData) {
+            var cell = document.createElement("div");
 
-            const date = cellData.date, key = toDateKey(date);
-            const dayEvents = getEventsOnDate(key).filter(ev => !q || formatSearch(ev).includes(q)).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+            if (cellData.empty) {
+                cell.className = "cell empty";
+                cell.innerHTML = '<div class="date"><span></span><span></span></div>';
+                els.grid.appendChild(cell);
+                return;
+            }
+
+            var date = cellData.date, key = toDateKey(date);
+            var dayEvents = getEventsOnDate(key)
+                .filter(function (ev) { return !q || formatSearch(ev).includes(q); })
+                .sort(function (a, b) { return (a.start || "").localeCompare(b.start || ""); });
+
             if (dayEvents.length > 0) anyMatch = true;
             if (q && dayEvents.length === 0) cell.style.display = "none";
 
             cell.className = "cell";
             if (key === toDateKey(new Date())) cell.classList.add("today");
             if (key === selectedDate) cell.classList.add("selected");
-            cell.addEventListener("click", () => { selectedDate = key; selectedEventId = null; render(); renderDayPanel(); });
 
-            const head = document.createElement("div"); head.className = "date";
-            const left = document.createElement("span"); left.textContent = String(date.getDate());
-            const right = document.createElement("span");
-            if (dayEvents.length) { const pill = document.createElement("span"); pill.className = "pill"; pill.textContent = String(dayEvents.length); right.appendChild(pill); }
+            cell.addEventListener("click", (function (k) {
+                return function () {
+                    selectedDate = k; selectedEventId = null;
+                    render(); renderDayPanel();
+                };
+            })(key));
+
+            var head = document.createElement("div"); head.className = "date";
+            var left = document.createElement("span"); left.textContent = String(date.getDate());
+            var right = document.createElement("span");
+            if (dayEvents.length) {
+                var pill = document.createElement("span");
+                pill.className = "pill";
+                pill.textContent = String(dayEvents.length);
+                right.appendChild(pill);
+            }
             head.appendChild(left); head.appendChild(right);
 
-            const list = document.createElement("div"); list.className = "events";
-            dayEvents.slice(0, 3).forEach(ev => {
-                const item = document.createElement("div"); item.className = "event-chip";
+            var list = document.createElement("div"); list.className = "events";
+            dayEvents.slice(0, 3).forEach(function (ev) {
+                var item = document.createElement("div"); item.className = "event-chip";
                 if (ev.color && ev.color !== "default") item.dataset.color = ev.color;
-                const timeText = (ev.start && ev.end) ? " " + ev.start : "";
-                const bell = (ev.remindMode && ev.remindMode !== "off") ? " 🔔" : "";
-                item.innerHTML = `<div><b>${escapeHtml(ev.title)}</b><span class="t">${timeText}${bell}</span></div><div class="t"></div>`;
-                item.addEventListener("click", e => { e.stopPropagation(); selectedEventId = ev.id; openModalForEdit(ev.id); });
+                var timeText = (ev.start && ev.end) ? " " + ev.start : "";
+                var bell = (ev.remindMode && ev.remindMode !== "off") ? " 🔔" : "";
+                item.innerHTML = '<div><b>' + escapeHtml(ev.title) + '</b>' +
+                    '<span class="t">' + timeText + bell + '</span></div><div class="t"></div>';
+                item.addEventListener("click", (function (evId) {
+                    return function (e) {
+                        e.stopPropagation();
+                        selectedEventId = evId;
+                        openModalForEdit(evId);
+                    };
+                })(ev.id));
                 list.appendChild(item);
             });
 
-            cell.appendChild(head); cell.appendChild(list); els.grid.appendChild(cell);
+            cell.appendChild(head); cell.appendChild(list);
+            els.grid.appendChild(cell);
         });
 
-        let noResultEl = document.getElementById("noResults");
-        if (!noResultEl) { noResultEl = document.createElement("div"); noResultEl.id = "noResults"; Object.assign(noResultEl.style, { textAlign: "center", padding: "10px", fontWeight: "bold", color: "red" }); els.grid.parentNode.appendChild(noResultEl); }
+        var noResultEl = document.getElementById("noResults");
+        if (!noResultEl) {
+            noResultEl = document.createElement("div");
+            noResultEl.id = "noResults";
+            Object.assign(noResultEl.style, {
+                textAlign: "center", padding: "10px",
+                fontWeight: "bold", color: "red"
+            });
+            els.grid.parentNode.appendChild(noResultEl);
+        }
         noResultEl.style.display = (q && !anyMatch) ? "block" : "none";
         if (q && !anyMatch) noResultEl.textContent = "No events found";
     }
 
-    // ─── RENDER DAY PANEL (Selected + Upcoming) ─────────────────────────────
+    // ─── RENDER DAY PANEL ────────────────────────────────────────────────────
     function renderDayPanel() {
-        const selectedContainer = els.selectedEvents;
-        const upcomingContainer = els.upcomingEvents;
+        var selectedContainer = els.selectedEvents;
+        var upcomingContainer = els.upcomingEvents;
         selectedContainer.innerHTML = "";
         upcomingContainer.innerHTML = "";
 
-        const selected = new Date(selectedDate + "T00:00:00");
-        els.dayLabel.textContent = selected.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+        var selected = new Date(selectedDate + "T00:00:00");
+        els.dayLabel.textContent = selected.toLocaleDateString(undefined, {
+            weekday: "long", year: "numeric", month: "long", day: "numeric"
+        });
 
-        const q = (els.searchInput.value || "").trim().toLowerCase();
+        var q = (els.searchInput.value || "").trim().toLowerCase();
 
-        // Selected day events
-        const dayEvents = getEventsOnDate(selectedDate).filter(ev => !q || formatSearch(ev).includes(q)).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+        var dayEvents = getEventsOnDate(selectedDate)
+            .filter(function (ev) { return !q || formatSearch(ev).includes(q); })
+            .sort(function (a, b) { return (a.start || "").localeCompare(b.start || ""); });
+
         if (!dayEvents.length) {
-            selectedContainer.innerHTML = `<div class="day-item">No events for this day.</div>`;
+            selectedContainer.innerHTML = '<div class="day-item">No events for this day.</div>';
         } else {
-            dayEvents.forEach(ev => selectedContainer.appendChild(createEventCard(ev)));
+            dayEvents.forEach(function (ev) {
+                selectedContainer.appendChild(createEventCard(ev, false));
+            });
         }
 
-        // Upcoming events
-        const upcoming = events.filter(ev => ev.date > selectedDate).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+        var upcoming = events
+            .filter(function (ev) { return ev.date > selectedDate; })
+            .sort(function (a, b) { return a.date.localeCompare(b.date); })
+            .slice(0, 5);
+
         if (!upcoming.length) {
-            upcomingContainer.innerHTML = `<div class="day-item">No upcoming events.</div>`;
+            upcomingContainer.innerHTML = '<div class="day-item">No upcoming events.</div>';
         } else {
-            upcoming.forEach(ev => upcomingContainer.appendChild(createEventCard(ev, true)));
+            upcoming.forEach(function (ev) {
+                upcomingContainer.appendChild(createEventCard(ev, true));
+            });
         }
     }
 
-    function createEventCard(ev, showDate = false) {
-        const item = document.createElement("div");
+    function createEventCard(ev, showDate) {
+        var item = document.createElement("div");
         item.className = "day-item";
         if (ev.color && ev.color !== "default") item.dataset.color = ev.color;
 
-        let tag = "All day";
-        if (ev.start && ev.end) tag = `${ev.start} – ${ev.end}`;
+        var tag = "All day";
+        if (ev.start && ev.end) tag = ev.start + " – " + ev.end;
 
-        const dateText = showDate ? `<div class="meta">${ev.date}</div>` : "";
+        var dateText = showDate ? '<div class="meta">' + ev.date + '</div>' : "";
 
-        const remindLabel =
-            ev.remindMode === "popup" ? "🔔 Day-of popup reminder<br/>" :
-            ev.remindMode === "60"   ? "🔔 Notify 1 hour before<br/>" :
-            ev.remindMode === "30"   ? "🔔 Notify 30 mins before<br/>" :
-            ev.remindMode === "15"   ? "🔔 Notify 15 mins before<br/>" : "";
+        var remindLabel = "";
+        if (ev.remindMode === "popup") remindLabel = "🔔 Day-of popup reminder<br/>";
+        else if (ev.remindMode === "60") remindLabel = "🔔 Notify 1 hour before<br/>";
+        else if (ev.remindMode === "30") remindLabel = "🔔 Notify 30 mins before<br/>";
+        else if (ev.remindMode === "15") remindLabel = "🔔 Notify 15 mins before<br/>";
 
-        item.innerHTML = `
-            <div class="event-row">
-                <div class="event-info">
-                    <div class="title">${escapeHtml(ev.title)}</div>
-                    ${dateText}
-                    <div class="tag">${escapeHtml(tag)}</div>
-                    <div class="meta">${remindLabel}${ev.description ? escapeHtml(ev.description) : ""}</div>
-                </div>
-                <div class="event-actions">
-                    <button class="pill-btn edit-btn">Edit</button>
-                    <button class="pill-btn delete-btn">Delete</button>
-                </div>
-            </div>
-        `;
+        item.innerHTML =
+            '<div class="event-row">' +
+                '<div class="event-info">' +
+                    '<div class="title">' + escapeHtml(ev.title) + '</div>' +
+                    dateText +
+                    '<div class="tag">' + escapeHtml(tag) + '</div>' +
+                    '<div class="meta">' + remindLabel +
+                        (ev.description ? escapeHtml(ev.description) : "") +
+                    '</div>' +
+                '</div>' +
+                '<div class="event-actions">' +
+                    '<button class="pill-btn edit-btn" type="button">Edit</button>' +
+                    '<button class="pill-btn delete-btn" type="button">Delete</button>' +
+                '</div>' +
+            '</div>';
 
-        item.querySelector(".edit-btn").addEventListener("click", (e) => { e.stopPropagation(); openModalForEdit(ev.id); });
-        item.querySelector(".delete-btn").addEventListener("click", (e) => { e.stopPropagation(); editingId = ev.id; onDelete(); });
+        item.querySelector(".edit-btn").addEventListener("click", function (e) {
+            e.stopPropagation(); openModalForEdit(ev.id);
+        });
+        item.querySelector(".delete-btn").addEventListener("click", function (e) {
+            e.stopPropagation(); editingId = ev.id; onDelete();
+        });
 
         return item;
     }
 
     // ─── MODAL ───────────────────────────────────────────────────────────────
     function openModalForDate(dateKey) {
-        editingId = null; els.deleteBtn.hidden = true;
-        els.modalTitle.textContent = "New event"; els.modalSub.textContent = "Fill details and click Save.";
-        els.idInput.value = ""; els.titleInput.value = ""; els.dateInput.value = dateKey; els.endDateInput.value = dateKey;
-        els.startInput.value = ""; els.endInput.value = ""; els.descInput.value = "";
-        els.remindInput.value = "off"; els.colorInput.value = "default"; els.conflictBox.hidden = true;
+        editingId = null;
+        els.deleteBtn.hidden = true;
+        els.modalTitle.textContent = "New event";
+        els.modalSub.textContent = "Fill details and click Save.";
+        els.idInput.value = "";
+        els.titleInput.value = "";
+        els.dateInput.value = dateKey;
+        els.endDateInput.value = dateKey;
+        els.startInput.value = "";
+        els.endInput.value = "";
+        els.descInput.value = "";
+        els.remindInput.value = "off";
+        els.colorInput.value = "default";
+        els.conflictBox.hidden = true;
         showModal();
     }
 
     function openModalForEdit(id) {
-        const ev = events.find(e => e.id === id); if (!ev) return;
-        editingId = id; els.deleteBtn.hidden = false;
-        els.modalTitle.textContent = "Edit event"; els.modalSub.textContent = "Update or delete this event.";
-        els.idInput.value = id; els.titleInput.value = ev.title || ""; els.dateInput.value = ev.date;
-        els.endDateInput.value = ev.endDate || ev.date; els.startInput.value = ev.start || ""; els.endInput.value = ev.end || "";
-        els.descInput.value = ev.description || ""; els.remindInput.value = ev.remindMode || "off"; els.colorInput.value = ev.color || "default";
-        updateConflictWarning(editingId); showModal();
+        var ev = events.find(function (e) { return e.id === id; });
+        if (!ev) return;
+        editingId = id;
+        els.deleteBtn.hidden = false;
+        els.modalTitle.textContent = "Edit event";
+        els.modalSub.textContent = "Update or delete this event.";
+        els.idInput.value = id;
+        els.titleInput.value = ev.title || "";
+        els.dateInput.value = ev.date;
+        els.endDateInput.value = ev.endDate || ev.date;
+        els.startInput.value = ev.start || "";
+        els.endInput.value = ev.end || "";
+        els.descInput.value = ev.description || "";
+        els.remindInput.value = ev.remindMode || "off";
+        els.colorInput.value = ev.color || "default";
+        updateConflictWarning(editingId);
+        showModal();
     }
 
     function draftFromForm() {
-        return { id: els.idInput.value || editingId || safeUUID(), title: els.titleInput.value.trim(), date: els.dateInput.value, endDate: els.endDateInput.value, start: els.startInput.value || null, end: els.endInput.value || null, description: els.descInput.value.trim(), remindMode: els.remindInput.value, color: els.colorInput.value };
+        return {
+            id: els.idInput.value || editingId || safeUUID(),
+            title: els.titleInput.value.trim(),
+            date: els.dateInput.value,
+            endDate: els.endDateInput.value,
+            start: els.startInput.value || null,
+            end: els.endInput.value || null,
+            description: els.descInput.value.trim(),
+            remindMode: els.remindInput.value,
+            color: els.colorInput.value
+        };
     }
 
     function onSave() {
-        const ev = draftFromForm();
+        var ev = draftFromForm();
         if (!ev.title || !ev.date) return toast("Please fill required fields");
         if (ev.endDate && ev.endDate < ev.date) return toast("End date cannot be before start date");
-        if ((ev.start && !ev.end) || (!ev.start && ev.end)) return toast("If you set time, set both Start and End");
-        if (ev.date === ev.endDate && ev.start && ev.end && ev.end <= ev.start) return toast("End time must be after start time");
+        if ((ev.start && !ev.end) || (!ev.start && ev.end))
+            return toast("If you set time, set both Start and End");
+        if (ev.date === ev.endDate && ev.start && ev.end && ev.end <= ev.start)
+            return toast("End time must be after start time");
 
-        const conflicts = detectConflicts(ev, editingId);
+        var conflicts = detectConflicts(ev, editingId);
         els.conflictBox.hidden = conflicts.length === 0;
-        if (conflicts.length) { const sample = conflicts.slice(0, 2).map(e => "• " + e.title + " (" + e.date + " " + e.start + "-" + e.end + ")").join("\n"); if (!confirm("Conflict detected with:\n" + sample + "\n\nSave anyway?")) return; }
+        if (conflicts.length) {
+            var sample = conflicts.slice(0, 2).map(function (e) {
+                return "• " + e.title + " (" + e.date + " " + e.start + "-" + e.end + ")";
+            }).join("\n");
+            if (!confirm("Conflict detected with:\n" + sample + "\n\nSave anyway?")) return;
+        }
 
-        const idx = events.findIndex(e => e.id === ev.id);
+        var idx = events.findIndex(function (e) { return e.id === ev.id; });
         if (idx >= 0) events[idx] = ev; else events.push(ev);
         saveEvents(events);
-        selectedDate = ev.date; selectedEventId = ev.id; viewDate = new Date(ev.date + "T00:00:00");
-        render(); renderDayPanel(); closeModal(); toast("Saved"); checkPopupReminders();
+
+        selectedDate = ev.date;
+        selectedEventId = ev.id;
+        viewDate = new Date(ev.date + "T00:00:00");
+        render(); renderDayPanel(); closeModal();
+        toast("Saved");
+        checkPopupReminders();
         if (ev.remindMode !== "off" && ev.remindMode !== "popup") checkPassiveReminders();
     }
 
     function onDelete() {
-        if (!editingId) return; if (!confirm("Delete this event?")) return;
-        events = events.filter(e => e.id !== editingId); saveEvents(events);
+        if (!editingId) return;
+        if (!confirm("Delete this event?")) return;
+        events = events.filter(function (e) { return e.id !== editingId; });
+        saveEvents(events);
         if (selectedEventId === editingId) selectedEventId = null;
-        render(); renderDayPanel(); closeModal(); toast("Deleted");
+        render(); renderDayPanel(); closeModal();
+        toast("Deleted");
     }
 
-    function showModal() { els.backdrop.hidden = false; els.modal.showModal(); }
-    function closeModal() { els.modal.close(); els.backdrop.hidden = true; }
+    function showModal() {
+        els.backdrop.hidden = false;
+        els.modal.showModal();
+    }
+
+    function closeModal() {
+        if (els.modal.open) els.modal.close();
+        els.backdrop.hidden = true;
+    }
 
     // ─── EXPORT ──────────────────────────────────────────────────────────────
     function exportEvents() {
         if (!events.length) return toast("No events to export!");
-        const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
-        const content = sorted.map((ev, i) => {
-            let time = "All day";
-            if (ev.start && ev.end) time = (ev.endDate && ev.endDate !== ev.date) ? ev.date + " " + ev.start + " – " + ev.endDate + " " + ev.end : ev.start + " – " + ev.end;
-            const desc = ev.description ? "\n   Description: " + ev.description : "";
-            const remind = ev.remindMode !== "off" ? "\n   🔔 Reminder: " + ev.remindMode : "";
-            const color = (ev.color && ev.color !== "default") ? "\n   Color: " + ev.color : "";
-            return "Event " + (i + 1) + ":\n   Title: " + ev.title + "\n   Date: " + ev.date + "\n   Time: " + time + desc + remind + color;
+        var sorted = events.slice().sort(function (a, b) {
+            return a.date.localeCompare(b.date);
+        });
+        var content = sorted.map(function (ev, i) {
+            var time = "All day";
+            if (ev.start && ev.end) {
+                time = (ev.endDate && ev.endDate !== ev.date)
+                    ? ev.date + " " + ev.start + " – " + ev.endDate + " " + ev.end
+                    : ev.start + " – " + ev.end;
+            }
+            var desc = ev.description ? "\n   Description: " + ev.description : "";
+            var remind = ev.remindMode !== "off" ? "\n   🔔 Reminder: " + ev.remindMode : "";
+            var color = (ev.color && ev.color !== "default") ? "\n   Color: " + ev.color : "";
+            return "Event " + (i + 1) + ":\n   Title: " + ev.title +
+                "\n   Date: " + ev.date + "\n   Time: " + time + desc + remind + color;
         }).join("\n\n---\n\n");
-        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([content], { type: "text/plain" })); a.download = "my-calendar-events.txt"; a.click(); URL.revokeObjectURL(a.href);
+
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
+        a.download = "my-calendar-events.txt";
+        a.click();
+        URL.revokeObjectURL(a.href);
         toast("Events exported!");
     }
 
     // ─── IMPORT ──────────────────────────────────────────────────────────────
     function initImportModal() {
-        els.importCloseBtn.onclick = () => els.importModal.close();
-        els.importCancelBtn.onclick = () => els.importModal.close();
+        els.importCloseBtn.addEventListener("click", function () {
+            els.importModal.close();
+        });
+        els.importCancelBtn.addEventListener("click", function () {
+            els.importModal.close();
+        });
 
-        els.importFileInput.onchange = e => {
-            const file = e.target.files[0];
+        els.importFileInput.addEventListener("change", function (e) {
+            var file = e.target.files[0];
             if (!file) return;
             els.importError.hidden = true;
             els.importConfirmBtn.disabled = true;
-            const reader = new FileReader();
-            reader.onload = () => {
+
+            var reader = new FileReader();
+            reader.onload = function () {
                 try {
-                    const data = JSON.parse(reader.result);
-                    if (!Array.isArray(data)) throw Error("Invalid file");
-                    importParsed = data;
+                    var data = JSON.parse(reader.result);
+                    if (!Array.isArray(data)) throw new Error("Not an array");
+                    /* Basic validation: each item needs at least title + date */
+                    var valid = data.filter(function (item) {
+                        return item && typeof item.title === "string" && item.title.trim() &&
+                               typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date);
+                    });
+                    if (!valid.length) throw new Error("No valid events found");
+                    /* Assign IDs to imported events that lack them */
+                    valid.forEach(function (item) {
+                        if (!item.id) item.id = safeUUID();
+                        if (!item.endDate) item.endDate = item.date;
+                        if (!item.remindMode) item.remindMode = "off";
+                        if (!item.color) item.color = "default";
+                    });
+                    importParsed = valid;
                     els.importConfirmBtn.disabled = false;
-                } catch {
+                    els.importError.hidden = true;
+                } catch (err) {
                     els.importError.hidden = false;
-                    els.importError.textContent = "Invalid JSON file";
+                    els.importError.textContent = "Invalid file: " + err.message;
+                    importParsed = [];
                 }
             };
             reader.readAsText(file);
-        };
+        });
 
-        els.importConfirmBtn.onclick = () => {
-            events.push(...importParsed);
+        els.importConfirmBtn.addEventListener("click", function () {
+            if (!importParsed.length) return;
+            events = events.concat(importParsed);
             saveEvents(events);
             els.importModal.close();
             importParsed = [];
-            render();
-            renderDayPanel();
-            toast("Events imported!");
-        };
+            render(); renderDayPanel();
+            toast(importParsed.length + " events imported!");
+        });
+    }
+
+    function resetImportModal() {
+        els.importFileInput.value = "";
+        els.importError.hidden = true;
+        els.importConfirmBtn.disabled = true;
+        importParsed = [];
     }
 
     // ─── POPUP REMINDERS ─────────────────────────────────────────────────────
     function checkPopupReminders() {
-        const todayKey = toDateKey(new Date());
-        let seen = {}; try { seen = JSON.parse(localStorage.getItem(POPUP_SEEN_KEY) || "{}"); } catch { seen = {}; }
+        var todayKey = toDateKey(new Date());
+        var seen = {};
+        try { seen = JSON.parse(localStorage.getItem(POPUP_SEEN_KEY) || "{}"); }
+        catch (e) { seen = {}; }
         if (seen[todayKey]) return;
 
-        const tomorrowKey = toDateKey(new Date(new Date(todayKey + "T00:00:00").getTime() + 86_400_000));
-        const list = [
-            ...getEventsOnDate(todayKey).filter(e => e.remindMode === "popup").map(e => ({ e, when: "Today" })),
-            ...getEventsOnDate(tomorrowKey).filter(e => e.remindMode === "popup").map(e => ({ e, when: "Tomorrow" }))
-        ];
+        var tomorrowMs = new Date(todayKey + "T00:00:00").getTime() + 86400000;
+        var tomorrowKey = toDateKey(new Date(tomorrowMs));
+        var list = []
+            .concat(
+                getEventsOnDate(todayKey)
+                    .filter(function (e) { return e.remindMode === "popup"; })
+                    .map(function (e) { return { e: e, when: "Today" }; })
+            )
+            .concat(
+                getEventsOnDate(tomorrowKey)
+                    .filter(function (e) { return e.remindMode === "popup"; })
+                    .map(function (e) { return { e: e, when: "Tomorrow" }; })
+            );
+
         if (!list.length) return;
-        const lines = list.slice(0, 6).map(x => "• " + x.e.title + " (" + x.when + ")");
-        alert("🔔 Reminder\n\n" + lines.join("\n") + (list.length > 6 ? "\n+" + (list.length - 6) + " more" : ""));
-        seen[todayKey] = true; localStorage.setItem(POPUP_SEEN_KEY, JSON.stringify(seen));
+        var lines = list.slice(0, 6).map(function (x) {
+            return "• " + x.e.title + " (" + x.when + ")";
+        });
+        var extra = list.length > 6 ? "\n+" + (list.length - 6) + " more" : "";
+        alert("🔔 Reminder\n\n" + lines.join("\n") + extra);
+        seen[todayKey] = true;
+        localStorage.setItem(POPUP_SEEN_KEY, JSON.stringify(seen));
     }
 
     // ─── HELPERS ─────────────────────────────────────────────────────────────
-    function formatSearch(ev) { return (ev.title + " " + (ev.description || "")).toLowerCase(); }
+    function formatSearch(ev) {
+        return (ev.title + " " + (ev.description || "")).toLowerCase();
+    }
 
     function getEventsOnDate(dateKey) {
-        const d = new Date(dateKey + "T00:00:00");
-        return events.filter(ev => { const s = new Date(ev.date + "T00:00:00"); const e = ev.endDate ? new Date(ev.endDate + "T00:00:00") : s; return d >= s && d <= e; });
+        var d = new Date(dateKey + "T00:00:00");
+        return events.filter(function (ev) {
+            var s = new Date(ev.date + "T00:00:00");
+            var e = ev.endDate ? new Date(ev.endDate + "T00:00:00") : s;
+            return d >= s && d <= e;
+        });
     }
 
-    function detectConflicts(candidate, excludeId = null) {
+    function detectConflicts(candidate, excludeId) {
         if (!candidate.start || !candidate.end) return [];
-        const cs = new Date(candidate.date + "T" + candidate.start), ce = new Date((candidate.endDate || candidate.date) + "T" + candidate.end);
-        return events.filter(e => e.id !== excludeId && e.start && e.end).filter(e => { const es = new Date(e.date + "T" + e.start), ee = new Date((e.endDate || e.date) + "T" + e.end); return cs < ee && es < ce; });
+        var cs = new Date(candidate.date + "T" + candidate.start);
+        var ce = new Date((candidate.endDate || candidate.date) + "T" + candidate.end);
+        return events
+            .filter(function (e) { return e.id !== excludeId && e.start && e.end; })
+            .filter(function (e) {
+                var es = new Date(e.date + "T" + e.start);
+                var ee = new Date((e.endDate || e.date) + "T" + e.end);
+                return cs < ee && es < ce;
+            });
     }
 
-    function updateConflictWarning(excludeId = null) { const d = draftFromForm(); if (!d.date || !d.start || !d.end) { els.conflictBox.hidden = true; return; } els.conflictBox.hidden = detectConflicts(d, excludeId).length === 0; }
+    function updateConflictWarning(excludeId) {
+        var d = draftFromForm();
+        if (!d.date || !d.start || !d.end) { els.conflictBox.hidden = true; return; }
+        els.conflictBox.hidden = detectConflicts(d, excludeId).length === 0;
+    }
 
-    function loadEvents() { try { const raw = localStorage.getItem(STORAGE_KEY); const items = raw ? JSON.parse(raw) : []; return Array.isArray(items) ? items : []; } catch { return []; } }
-    function saveEvents(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); syncEventsToSW(); }
+    function loadEvents() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            var items = raw ? JSON.parse(raw) : [];
+            return Array.isArray(items) ? items : [];
+        } catch (e) { return []; }
+    }
 
-    function toDateKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-    function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
-    function safeUUID() { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + "_" + Math.random().toString(16).slice(2); }
-    function escapeHtml(s = "") { return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
+    function saveEvents(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        syncEventsToSW();
+    }
 
-    let toastTimer = null;
+    function toDateKey(d) {
+        return d.getFullYear() + "-" +
+            String(d.getMonth() + 1).padStart(2, "0") + "-" +
+            String(d.getDate()).padStart(2, "0");
+    }
+
+    function addMonths(d, n) {
+        return new Date(d.getFullYear(), d.getMonth() + n, 1);
+    }
+
+    function safeUUID() {
+        return (crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : String(Date.now()) + "_" + Math.random().toString(16).slice(2);
+    }
+
+    function escapeHtml(s) {
+        return String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    var toastTimer = null;
     function toast(msg) {
-        let el = document.getElementById("toast");
-        if (!el) { el = document.createElement("div"); el.id = "toast"; Object.assign(el.style, { position: "fixed", left: "50%", bottom: "18px", transform: "translateX(-50%)", background: "rgba(0,0,0,.78)", color: "#fff", padding: "10px 12px", borderRadius: "999px", fontWeight: "900", fontSize: "12px", zIndex: "9999", maxWidth: "calc(100% - 24px)", textAlign: "center" }); document.body.appendChild(el); }
-        el.textContent = msg; el.style.opacity = "1"; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.opacity = "0"; }, 2400);
+        var el = document.getElementById("toast");
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "toast";
+            Object.assign(el.style, {
+                position: "fixed", left: "50%", bottom: "18px",
+                transform: "translateX(-50%)",
+                background: "rgba(0,0,0,.78)", color: "#fff",
+                padding: "10px 12px", borderRadius: "999px",
+                fontWeight: "900", fontSize: "12px",
+                zIndex: "9999", maxWidth: "calc(100% - 24px)",
+                textAlign: "center", transition: "opacity 0.3s"
+            });
+            document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.opacity = "1";
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.style.opacity = "0"; }, 2400);
     }
 
     function initTheme() {
-        const btn = document.getElementById("themeToggle");
-        const saved = localStorage.getItem("calendar_theme");
-        if (saved === "dark") { document.body.classList.add("dark"); btn.textContent = "☀️ Light"; }
-        btn.addEventListener("click", () => { document.body.classList.toggle("dark"); const isDark = document.body.classList.contains("dark"); btn.textContent = isDark ? "☀️ Light" : "🌙 Dark"; localStorage.setItem("calendar_theme", isDark ? "dark" : "light"); });
+        var btn = document.getElementById("themeToggle");
+        var saved = localStorage.getItem("calendar_theme");
+        if (saved === "dark") {
+            document.body.classList.add("dark");
+            btn.textContent = "☀️ Light";
+        }
+        btn.addEventListener("click", function () {
+            document.body.classList.toggle("dark");
+            var isDark = document.body.classList.contains("dark");
+            btn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
+            localStorage.setItem("calendar_theme", isDark ? "dark" : "light");
+        });
     }
 })();
