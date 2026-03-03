@@ -1,73 +1,64 @@
 /**
  * sw.js — My-Calendar Service Worker
  * Handles background passive reminder notifications.
- *
- * How it works:
- *  1. When the page is OPEN  → the page's own setInterval fires checkPassiveReminders()
- *     and posts SHOW_NOTIFICATION messages here. We just call showNotification().
- *
- *  2. When the page is CLOSED → the SW reads events from Cache Storage and fires
- *     notifications on its own via the "periodicsync" event (Chrome) or a
- *     self-triggered alarm approach as a fallback.
- 
- * Console logs from the SW appear in DevTools → Application → Service Workers
- * → "Inspect" link, OR in the SW's own DevTools console.
- * We also forward logs to any open page client via postMessage.
  */
 
-const CACHE_NAME   = "calendar-data-v1";
-const SW_VERSION   = "1.0.0";
+var CACHE_NAME = "calendar-data-v1";
+var SW_VERSION = "1.0.1";
 
 // ── Helper: log to SW console AND forward to page ────────────────────────────
-function log(...args) {
-    const msg = args.join(" ");
+function log() {
+    var args = Array.prototype.slice.call(arguments);
+    var msg = args.join(" ");
     console.log("[SW " + SW_VERSION + "]", msg);
-    // Forward to any open page clients so devs can see SW logs in the page console
-    self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then(clients => {
-        clients.forEach(c => c.postMessage({ type: "SW_LOG", msg: "[SW] " + msg }));
+    self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then(function(clients) {
+        clients.forEach(function(c) {
+            c.postMessage({ type: "SW_LOG", msg: "[SW] " + msg });
+        });
     });
 }
 
-function warn(...args) {
-    const msg = args.join(" ");
+function warn() {
+    var args = Array.prototype.slice.call(arguments);
+    var msg = args.join(" ");
     console.warn("[SW " + SW_VERSION + "]", msg);
-    self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then(clients => {
-        clients.forEach(c => c.postMessage({ type: "SW_LOG", msg: "[SW WARN] " + msg }));
+    self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then(function(clients) {
+        clients.forEach(function(c) {
+            c.postMessage({ type: "SW_LOG", msg: "[SW WARN] " + msg });
+        });
     });
 }
 
 // ── Install ───────────────────────────────────────────────────────────────────
-self.addEventListener("install", event => {
+self.addEventListener("install", function(event) {
     log("Installing SW version", SW_VERSION);
-    self.skipWaiting(); // activate immediately without waiting for old SW to die
+    self.skipWaiting();
 });
 
 // ── Activate ──────────────────────────────────────────────────────────────────
-self.addEventListener("activate", event => {
+self.addEventListener("activate", function(event) {
     log("Activating — claiming all clients");
     event.waitUntil(self.clients.claim());
 });
 
 // ── Message from the main page thread ─────────────────────────────────────────
-// The page sends SHOW_NOTIFICATION when it wants to fire a notification through us.
-// This works even when the tab is backgrounded, as long as the page is still open.
-self.addEventListener("message", event => {
-    const data = event.data;
+self.addEventListener("message", function(event) {
+    var data = event.data;
     if (!data || !data.type) return;
 
     if (data.type === "SHOW_NOTIFICATION") {
         log("Received SHOW_NOTIFICATION from page — title:", data.title, "| tag:", data.tag);
         event.waitUntil(
             self.registration.showNotification(data.title, {
-                body:             data.body  || "",
-                icon:             data.icon  || "images/android-chrome-512x512.png",
-                badge:            data.icon  || "images/android-chrome-512x512.png",
-                tag:              data.tag   || "cal-notif",
+                body: data.body || "",
+                icon: data.icon || "images/android-chrome-512x512.png",
+                badge: data.icon || "images/android-chrome-512x512.png",
+                tag: data.tag || "cal-notif",
                 requireInteraction: false,
-                silent:           false,
-            }).then(() => {
+                silent: false
+            }).then(function() {
                 log("✅ Notification shown successfully:", data.title);
-            }).catch(err => {
+            }).catch(function(err) {
                 warn("❌ showNotification() failed:", err.message);
             })
         );
@@ -80,12 +71,18 @@ self.addEventListener("message", event => {
 });
 
 // ── Notification click: focus or open the app ─────────────────────────────────
-self.addEventListener("notificationclick", event => {
+self.addEventListener("notificationclick", function(event) {
     log("Notification clicked:", event.notification.title);
     event.notification.close();
     event.waitUntil(
-        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
-            const existing = clients.find(c => c.url.includes(self.location.origin));
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clients) {
+            var existing = null;
+            for (var i = 0; i < clients.length; i++) {
+                if (clients[i].url.indexOf(self.location.origin) !== -1) {
+                    existing = clients[i];
+                    break;
+                }
+            }
             if (existing) {
                 log("Focusing existing page client");
                 return existing.focus();
@@ -97,9 +94,7 @@ self.addEventListener("notificationclick", event => {
 });
 
 // ── Background Periodic Sync ──────────────────────────────────────────────────
-// Chrome on Android (and some desktop) fires this when the browser decides it is
-// a good time to run background tasks. minInterval = 60 000 ms (1 minute).
-self.addEventListener("periodicsync", event => {
+self.addEventListener("periodicsync", function(event) {
     log("periodicsync fired — tag:", event.tag);
     if (event.tag === "calendar-reminders") {
         event.waitUntil(checkRemindersInBackground());
@@ -107,111 +102,127 @@ self.addEventListener("periodicsync", event => {
 });
 
 // ── Core background check ─────────────────────────────────────────────────────
-// Called when NO page client is open. Reads events from Cache Storage.
-async function checkRemindersInBackground() {
+function checkRemindersInBackground() {
     log("checkRemindersInBackground() running at", new Date().toLocaleTimeString());
 
-    // If a page is open, let it handle the check (it has fresh localStorage state)
-    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    if (clients.length > 0) {
-        log("Page is open — delegating check to page (", clients.length, "client(s))");
-        return;
-    }
+    return self.clients.matchAll({ type: "window", includeUncontrolled: true })
+        .then(function(clients) {
+            if (clients.length > 0) {
+                log("Page is open — delegating check to page (", clients.length, "client(s))");
+                return;
+            }
 
-    log("No page open — reading events from Cache Storage");
+            log("No page open — reading events from Cache Storage");
+            return caches.open(CACHE_NAME).then(function(cache) {
+                return Promise.all([
+                    cache.match("events"),
+                    cache.match("notif-sent")
+                ]).then(function(results) {
+                    var evRes = results[0];
+                    var sentRes = results[1];
 
-    let events, sent;
-    try {
-        const cache     = await caches.open(CACHE_NAME);
-        const evRes     = await cache.match("events");
-        const sentRes   = await cache.match("notif-sent");
+                    if (!evRes) {
+                        warn("No events found in Cache Storage — has the app been opened at least once?");
+                        return;
+                    }
 
-        if (!evRes) {
-            warn("No events found in Cache Storage — has the app been opened at least once?");
-            return;
-        }
+                    return Promise.all([
+                        evRes.json(),
+                        sentRes ? sentRes.json() : {}
+                    ]).then(function(data) {
+                        var events = data[0];
+                        var sent = data[1];
 
-        events = await evRes.json();
-        sent   = sentRes ? await sentRes.json() : {};
-        log("Loaded", events.length, "event(s) from cache");
-    } catch (err) {
-        warn("Failed to read from Cache Storage:", err.message);
-        return;
-    }
+                        log("Loaded", events.length, "event(s) from cache");
+                        return processReminders(events, sent, cache);
+                    });
+                });
+            }).catch(function(err) {
+                warn("Failed to read from Cache Storage:", err.message);
+            });
+        });
+}
 
-    const now      = new Date();
-    const todayKey = toDateKey(now);
-    const nowMs    = now.getTime();
-    let   dirty    = false;
+function processReminders(events, sent, cache) {
+    var now = new Date();
+    var todayKey = toDateKey(now);
+    var nowMs = now.getTime();
+    var dirty = false;
 
     // Prune stale sent-keys
-    Object.keys(sent).forEach(k => {
-        if (!k.startsWith(todayKey)) { delete sent[k]; dirty = true; }
+    Object.keys(sent).forEach(function(k) {
+        if (k.indexOf(todayKey) !== 0) {
+            delete sent[k];
+            dirty = true;
+        }
     });
 
     // Filter events that fall on today
-    const todayEvents = events.filter(ev => {
-        const s = new Date(ev.date + "T00:00:00");
-        const e = ev.endDate ? new Date(ev.endDate + "T00:00:00") : s;
-        const t = new Date(todayKey + "T00:00:00");
+    var todayEvents = events.filter(function(ev) {
+        var s = new Date(ev.date + "T00:00:00");
+        var e = ev.endDate ? new Date(ev.endDate + "T00:00:00") : s;
+        var t = new Date(todayKey + "T00:00:00");
         return t >= s && t <= e;
     });
 
     log("Events on today (" + todayKey + "):", todayEvents.length);
 
-    for (const ev of todayEvents) {
-        const mins = parseInt(ev.remindMode, 10);
+    var notificationPromises = [];
+
+    todayEvents.forEach(function(ev) {
+        var mins = parseInt(ev.remindMode, 10);
         if (!ev.start || isNaN(mins)) {
             log("Skipping '" + ev.title + "' — remindMode='" + ev.remindMode + "' (not passive)");
-            continue;
+            return;
         }
 
-        const eventMs  = new Date(ev.date + "T" + ev.start).getTime();
-        const diffMins = (eventMs - nowMs) / 60_000;
-        const sentKey  = todayKey + "_" + ev.id + "_" + mins;
+        var eventMs = new Date(ev.date + "T" + ev.start).getTime();
+        var diffMins = (eventMs - nowMs) / 60000;
+        var sentKey = todayKey + "_" + ev.id + "_" + mins;
 
         log("'" + ev.title + "' diff=" + diffMins.toFixed(1) + " min | threshold=" + mins + " | sent=" + !!sent[sentKey]);
 
-        if (diffMins <= 0 || diffMins > mins || sent[sentKey]) continue;
+        if (diffMins <= 0 || diffMins > mins || sent[sentKey]) return;
 
-        const roundedMins = Math.round(diffMins);
-        const timeLabel   = roundedMins >= 60 ? "1 hour" : roundedMins + " minute" + (roundedMins !== 1 ? "s" : "");
+        var roundedMins = Math.round(diffMins);
+        var timeLabel = roundedMins >= 60 ? "1 hour" : roundedMins + " minute" + (roundedMins !== 1 ? "s" : "");
 
         log("🔔 FIRING background notification for '" + ev.title + "' — in " + timeLabel);
-        try {
-            await self.registration.showNotification("⏰ " + ev.title, {
-                body:             "Starting in about " + timeLabel,
-                icon:             "images/android-chrome-512x512.png",
-                badge:            "images/android-chrome-512x512.png",
-                tag:              sentKey,
-                requireInteraction: false,
-            });
-            log("✅ Background notification shown for '" + ev.title + "'");
-        } catch (err) {
-            warn("❌ showNotification() failed for '" + ev.title + "':", err.message);
-        }
 
+        var p = self.registration.showNotification("⏰ " + ev.title, {
+            body: "Starting in about " + timeLabel,
+            icon: "images/android-chrome-512x512.png",
+            badge: "images/android-chrome-512x512.png",
+            tag: sentKey,
+            requireInteraction: false
+        }).then(function() {
+            log("✅ Background notification shown for '" + ev.title + "'");
+        }).catch(function(err) {
+            warn("❌ showNotification() failed for '" + ev.title + "':", err.message);
+        });
+
+        notificationPromises.push(p);
         sent[sentKey] = true;
         dirty = true;
-    }
+    });
 
-    if (dirty) {
-        try {
-            const cache = await caches.open(CACHE_NAME);
-            await cache.put("notif-sent", new Response(JSON.stringify(sent), {
+    return Promise.all(notificationPromises).then(function() {
+        if (dirty) {
+            return cache.put("notif-sent", new Response(JSON.stringify(sent), {
                 headers: { "Content-Type": "application/json" }
-            }));
-            log("Updated notif-sent in cache");
-        } catch (err) {
-            warn("Failed to update notif-sent in cache:", err.message);
+            })).then(function() {
+                log("Updated notif-sent in cache");
+            }).catch(function(err) {
+                warn("Failed to update notif-sent in cache:", err.message);
+            });
         }
-    }
+    });
 }
 
 // ── Date helper (mirrors the one in app.js) ───────────────────────────────────
 function toDateKey(d) {
-    const y   = d.getFullYear();
-    const mo  = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+    var y = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
     return y + "-" + mo + "-" + day;
 }
