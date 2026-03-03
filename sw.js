@@ -10,6 +10,7 @@
  *     notifications on its own via the "periodicsync" event (Chrome) or a
  *     self-triggered alarm approach as a fallback.
  *
+ 
  * Console logs from the SW appear in DevTools → Application → Service Workers
  * → "Inspect" link, OR in the SW's own DevTools console.
  * We also forward logs to any open page client via postMessage.
