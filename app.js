@@ -1,9 +1,9 @@
 (function () {
     "use strict";
 
-    const $ = (id) => document.getElementById(id);
+    var $ = function(id) { return document.getElementById(id); };
 
-    const els = {
+    var els = {
         prevBtn:        $("prevBtn"),
         nextBtn:        $("nextBtn"),
         todayBtn:       $("todayBtn"),
@@ -46,20 +46,20 @@
         importCancelBtn:$("importCancelBtn"),
         importConfirmBtn:$("importConfirmBtn"),
         importFileInput:$("importFileInput"),
-        importError:    $("importError"),
+        importError:    $("importError")
     };
 
-    const STORAGE_KEY          = "calendra_lite_events_v2";
-    const POPUP_SEEN_KEY       = "calendra_lite_popup_seen_v1";
-    const NOTIF_SENT_KEY       = "calendra_notif_sent_v1";
-    const BANNER_DISMISSED_KEY = "calendra_notif_banner_dismissed";
+    var STORAGE_KEY          = "calendra_lite_events_v2";
+    var POPUP_SEEN_KEY       = "calendra_lite_popup_seen_v1";
+    var NOTIF_SENT_KEY       = "calendra_notif_sent_v1";
+    var BANNER_DISMISSED_KEY = "calendra_notif_banner_dismissed";
 
-    let events          = loadEvents();
-    let viewDate        = new Date();
-    let selectedDate    = toDateKey(new Date());
-    let editingId       = null;
-    let selectedEventId = null;
-    let importParsed    = [];
+    var events          = loadEvents();
+    var viewDate        = new Date();
+    var selectedDate    = toDateKey(new Date());
+    var editingId       = null;
+    var selectedEventId = null;
+    var importParsed    = [];
 
     init();
 
@@ -75,32 +75,54 @@
         initNotificationBanner();
         initImportModal();
         checkPassiveReminders();
-        setInterval(checkPassiveReminders, 60_000);
+        setInterval(checkPassiveReminders, 60000);
     }
 
     // ─── SERVICE WORKER ──────────────────────────────────────────────────────
     function registerServiceWorker() {
         if (!("serviceWorker" in navigator)) return;
+
         navigator.serviceWorker.register("sw.js")
-            .then(function () {
-                navigator.serviceWorker.addEventListener("message", function (e) {
-                    if (e.data && e.data.type === "SW_LOG") console.log("[SW]", e.data.msg);
+            .then(function(registration) {
+                console.log("[App] SW registered");
+
+                // Listen for messages from SW
+                navigator.serviceWorker.addEventListener("message", function(e) {
+                    if (e.data && e.data.type === "SW_LOG") {
+                        console.log("[SW → Page]", e.data.msg);
+                    }
                 });
+
+                // Register for periodic background sync (if supported)
+                if ("periodicSync" in registration) {
+                    registration.periodicSync.register("calendar-reminders", {
+                        minInterval: 60000 // 1 minute minimum
+                    }).then(function() {
+                        console.log("[App] Periodic sync registered");
+                    }).catch(function(err) {
+                        console.log("[App] Periodic sync registration failed:", err.message);
+                    });
+                }
             })
-            .catch(function (err) { console.error("[SW] Registration FAILED:", err); });
+            .catch(function(err) {
+                console.error("[App] SW registration FAILED:", err);
+            });
     }
 
     // ─── NOTIFICATION BANNER ─────────────────────────────────────────────────
     function initNotificationBanner() {
         if (!("Notification" in window)) return;
-        if (Notification.permission === "granted") { syncEventsToSW(); return; }
+        if (Notification.permission === "granted") {
+            syncEventsToSW();
+            return;
+        }
         if (Notification.permission === "denied") return;
         if (localStorage.getItem(BANNER_DISMISSED_KEY)) return;
 
         els.notifBanner.hidden = false;
 
-        els.notifAllowBtn.addEventListener("click", function () {
-            Notification.requestPermission().then(function (perm) {
+        els.notifAllowBtn.addEventListener("click", function() {
+            Notification.requestPermission().then(function(perm) {
                 els.notifBanner.hidden = true;
                 if (perm === "granted") {
                     toast("🔔 Notifications enabled!");
@@ -112,7 +134,7 @@
             });
         });
 
-        els.notifDismissBtn.addEventListener("click", function () {
+        els.notifDismissBtn.addEventListener("click", function() {
             els.notifBanner.hidden = true;
             localStorage.setItem(BANNER_DISMISSED_KEY, "1");
         });
@@ -121,19 +143,27 @@
     // ─── SYNC TO SW ──────────────────────────────────────────────────────────
     function syncEventsToSW() {
         if (!("caches" in window)) return;
-        caches.open("calendar-data-v1").then(function (cache) {
-            cache.put("events", new Response(JSON.stringify(events),
-                { headers: { "Content-Type": "application/json" } }));
-            cache.put("notif-sent", new Response(JSON.stringify(getNotifSent()),
-                { headers: { "Content-Type": "application/json" } }));
-        }).catch(function (err) { console.error("[Cache] Failed:", err); });
+        caches.open("calendar-data-v1").then(function(cache) {
+            cache.put("events", new Response(JSON.stringify(events), {
+                headers: { "Content-Type": "application/json" }
+            }));
+            cache.put("notif-sent", new Response(JSON.stringify(getNotifSent()), {
+                headers: { "Content-Type": "application/json" }
+            }));
+        }).catch(function(err) {
+            console.error("[Cache] Failed:", err);
+        });
     }
 
     // ─── PASSIVE REMINDERS ───────────────────────────────────────────────────
     function getNotifSent() {
-        try { return JSON.parse(localStorage.getItem(NOTIF_SENT_KEY) || "{}"); }
-        catch (e) { return {}; }
+        try {
+            return JSON.parse(localStorage.getItem(NOTIF_SENT_KEY) || "{}");
+        } catch (e) {
+            return {};
+        }
     }
+
     function setNotifSent(obj) {
         localStorage.setItem(NOTIF_SENT_KEY, JSON.stringify(obj));
     }
@@ -141,15 +171,21 @@
     function checkPassiveReminders() {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-        var now = new Date(), todayKey = toDateKey(now), nowMs = now.getTime();
+        var now = new Date();
+        var todayKey = toDateKey(now);
+        var nowMs = now.getTime();
         var sent = getNotifSent();
         var dirty = false;
 
-        Object.keys(sent).forEach(function (k) {
-            if (!k.startsWith(todayKey)) { delete sent[k]; dirty = true; }
+        // Prune old keys
+        Object.keys(sent).forEach(function(k) {
+            if (k.indexOf(todayKey) !== 0) {
+                delete sent[k];
+                dirty = true;
+            }
         });
 
-        getEventsOnDate(todayKey).forEach(function (ev) {
+        getEventsOnDate(todayKey).forEach(function(ev) {
             var mins = parseInt(ev.remindMode, 10);
             if (!ev.start || isNaN(mins)) return;
 
@@ -160,21 +196,28 @@
             if (diffMins <= 0 || diffMins > mins || sent[sentKey]) return;
 
             var roundedMins = Math.round(diffMins);
-            var timeLabel = roundedMins >= 60
-                ? "1 hour"
-                : roundedMins + " minute" + (roundedMins !== 1 ? "s" : "");
+            var timeLabel = roundedMins >= 60 ? "1 hour" : roundedMins + " minute" + (roundedMins !== 1 ? "s" : "");
             var notifTitle = "⏰ " + ev.title;
             var notifBody = "Starting in about " + timeLabel;
 
             if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                 navigator.serviceWorker.controller.postMessage({
-                    type: "SHOW_NOTIFICATION", title: notifTitle, body: notifBody,
-                    tag: sentKey, icon: "images/android-chrome-512x512.png"
+                    type: "SHOW_NOTIFICATION",
+                    title: notifTitle,
+                    body: notifBody,
+                    tag: sentKey,
+                    icon: "images/android-chrome-512x512.png"
                 });
             } else {
-                try { new Notification(notifTitle, { body: notifBody, tag: sentKey,
-                    icon: "images/android-chrome-512x512.png" }); }
-                catch (err) { console.error(err); }
+                try {
+                    new Notification(notifTitle, {
+                        body: notifBody,
+                        tag: sentKey,
+                        icon: "images/android-chrome-512x512.png"
+                    });
+                } catch (err) {
+                    console.error(err);
+                }
             }
 
             sent[sentKey] = true;
@@ -182,7 +225,10 @@
             toast("🔔 " + ev.title + " in ~" + timeLabel);
         });
 
-        if (dirty) { setNotifSent(sent); syncEventsToSW(); }
+        if (dirty) {
+            setNotifSent(sent);
+            syncEventsToSW();
+        }
     }
 
     // ─── DROPDOWNS ───────────────────────────────────────────────────────────
@@ -191,20 +237,20 @@
         els.yearSelect.innerHTML = "";
         for (var y = cur - 50; y <= cur + 50; y++) {
             var opt = document.createElement("option");
-            opt.value = y; opt.textContent = y;
+            opt.value = y;
+            opt.textContent = y;
             els.yearSelect.appendChild(opt);
         }
         els.yearSelect.value = viewDate.getFullYear();
-        els.yearSelect.addEventListener("change", function () {
+        els.yearSelect.addEventListener("change", function() {
             viewDate = new Date(parseInt(this.value), viewDate.getMonth(), 1);
             render();
         });
     }
 
     function initMonthDropdown() {
-        /* Options already exist in HTML — just sync value and bind */
         els.monthSelect.value = viewDate.getMonth();
-        els.monthSelect.addEventListener("change", function () {
+        els.monthSelect.addEventListener("change", function() {
             viewDate = new Date(viewDate.getFullYear(), parseInt(this.value), 1);
             render();
         });
@@ -212,52 +258,62 @@
 
     // ─── BINDINGS ────────────────────────────────────────────────────────────
     function bind() {
-        els.prevBtn.addEventListener("click", function () {
-            viewDate = addMonths(viewDate, -1); render();
+        els.prevBtn.addEventListener("click", function() {
+            viewDate = addMonths(viewDate, -1);
+            render();
         });
-        els.nextBtn.addEventListener("click", function () {
-            viewDate = addMonths(viewDate, 1); render();
+        els.nextBtn.addEventListener("click", function() {
+            viewDate = addMonths(viewDate, 1);
+            render();
         });
-        els.todayBtn.addEventListener("click", function () {
+        els.todayBtn.addEventListener("click", function() {
             viewDate = new Date();
             selectedDate = toDateKey(new Date());
             selectedEventId = null;
-            render(); renderDayPanel();
+            render();
+            renderDayPanel();
         });
-        els.searchInput.addEventListener("input", function () {
-            render(); renderDayPanel();
+        els.searchInput.addEventListener("input", function() {
+            render();
+            renderDayPanel();
         });
-        els.addBtn.addEventListener("click", function () {
+        els.addBtn.addEventListener("click", function() {
             openModalForDate(selectedDate);
         });
-        els.editBtn.addEventListener("click", function () {
+        els.editBtn.addEventListener("click", function() {
             if (!selectedEventId) return toast("Select an event first");
             openModalForEdit(selectedEventId);
         });
-        els.deleteSideBtn.addEventListener("click", function () {
+        els.deleteSideBtn.addEventListener("click", function() {
             if (!selectedEventId) return toast("Select an event first");
-            editingId = selectedEventId; onDelete();
+            editingId = selectedEventId;
+            onDelete();
         });
         els.exportBtn.addEventListener("click", exportEvents);
-        els.importBtn.addEventListener("click", function () {
+        els.importBtn.addEventListener("click", function() {
             resetImportModal();
             els.importModal.showModal();
         });
-        els.clearAllBtn.addEventListener("click", function () {
+        els.clearAllBtn.addEventListener("click", function() {
             if (!confirm("Are you sure you want to delete ALL events?")) return;
-            events = []; saveEvents(events); selectedEventId = null;
-            render(); renderDayPanel(); toast("All events cleared");
+            events = [];
+            saveEvents(events);
+            selectedEventId = null;
+            render();
+            renderDayPanel();
+            toast("All events cleared");
         });
         els.closeBtn.addEventListener("click", closeModal);
         els.cancelBtn.addEventListener("click", closeModal);
         els.backdrop.addEventListener("click", closeModal);
-        els.eventForm.addEventListener("submit", function (e) {
-            e.preventDefault(); onSave();
+        els.eventForm.addEventListener("submit", function(e) {
+            e.preventDefault();
+            onSave();
         });
         els.deleteBtn.addEventListener("click", onDelete);
 
-        ["dateInput", "endDateInput", "startInput", "endInput"].forEach(function (id) {
-            $(id).addEventListener("input", function () {
+        ["dateInput", "endDateInput", "startInput", "endInput"].forEach(function(id) {
+            $(id).addEventListener("input", function() {
                 updateConflictWarning(editingId);
             });
         });
@@ -266,7 +322,8 @@
     // ─── RENDER CALENDAR ─────────────────────────────────────────────────────
     function render() {
         var anyMatch = false;
-        var y = viewDate.getFullYear(), m = viewDate.getMonth();
+        var y = viewDate.getFullYear();
+        var m = viewDate.getMonth();
         els.yearSelect.value = y;
         els.monthSelect.value = m;
 
@@ -283,7 +340,7 @@
         var q = (els.searchInput.value || "").trim().toLowerCase();
         els.grid.innerHTML = "";
 
-        cells.forEach(function (cellData) {
+        cells.forEach(function(cellData) {
             var cell = document.createElement("div");
 
             if (cellData.empty) {
@@ -293,10 +350,11 @@
                 return;
             }
 
-            var date = cellData.date, key = toDateKey(date);
+            var date = cellData.date;
+            var key = toDateKey(date);
             var dayEvents = getEventsOnDate(key)
-                .filter(function (ev) { return !q || formatSearch(ev).includes(q); })
-                .sort(function (a, b) { return (a.start || "").localeCompare(b.start || ""); });
+                .filter(function(ev) { return !q || formatSearch(ev).indexOf(q) !== -1; })
+                .sort(function(a, b) { return (a.start || "").localeCompare(b.start || ""); });
 
             if (dayEvents.length > 0) anyMatch = true;
             if (q && dayEvents.length === 0) cell.style.display = "none";
@@ -305,15 +363,19 @@
             if (key === toDateKey(new Date())) cell.classList.add("today");
             if (key === selectedDate) cell.classList.add("selected");
 
-            cell.addEventListener("click", (function (k) {
-                return function () {
-                    selectedDate = k; selectedEventId = null;
-                    render(); renderDayPanel();
-                };
-            })(key));
+            (function(k) {
+                cell.addEventListener("click", function() {
+                    selectedDate = k;
+                    selectedEventId = null;
+                    render();
+                    renderDayPanel();
+                });
+            })(key);
 
-            var head = document.createElement("div"); head.className = "date";
-            var left = document.createElement("span"); left.textContent = String(date.getDate());
+            var head = document.createElement("div");
+            head.className = "date";
+            var left = document.createElement("span");
+            left.textContent = String(date.getDate());
             var right = document.createElement("span");
             if (dayEvents.length) {
                 var pill = document.createElement("span");
@@ -321,27 +383,31 @@
                 pill.textContent = String(dayEvents.length);
                 right.appendChild(pill);
             }
-            head.appendChild(left); head.appendChild(right);
+            head.appendChild(left);
+            head.appendChild(right);
 
-            var list = document.createElement("div"); list.className = "events";
-            dayEvents.slice(0, 3).forEach(function (ev) {
-                var item = document.createElement("div"); item.className = "event-chip";
+            var list = document.createElement("div");
+            list.className = "events";
+            dayEvents.slice(0, 3).forEach(function(ev) {
+                var item = document.createElement("div");
+                item.className = "event-chip";
                 if (ev.color && ev.color !== "default") item.dataset.color = ev.color;
                 var timeText = (ev.start && ev.end) ? " " + ev.start : "";
                 var bell = (ev.remindMode && ev.remindMode !== "off") ? " 🔔" : "";
                 item.innerHTML = '<div><b>' + escapeHtml(ev.title) + '</b>' +
                     '<span class="t">' + timeText + bell + '</span></div><div class="t"></div>';
-                item.addEventListener("click", (function (evId) {
-                    return function (e) {
+                (function(evId) {
+                    item.addEventListener("click", function(e) {
                         e.stopPropagation();
                         selectedEventId = evId;
                         openModalForEdit(evId);
-                    };
-                })(ev.id));
+                    });
+                })(ev.id);
                 list.appendChild(item);
             });
 
-            cell.appendChild(head); cell.appendChild(list);
+            cell.appendChild(head);
+            cell.appendChild(list);
             els.grid.appendChild(cell);
         });
 
@@ -349,10 +415,10 @@
         if (!noResultEl) {
             noResultEl = document.createElement("div");
             noResultEl.id = "noResults";
-            Object.assign(noResultEl.style, {
-                textAlign: "center", padding: "10px",
-                fontWeight: "bold", color: "red"
-            });
+            noResultEl.style.textAlign = "center";
+            noResultEl.style.padding = "10px";
+            noResultEl.style.fontWeight = "bold";
+            noResultEl.style.color = "red";
             els.grid.parentNode.appendChild(noResultEl);
         }
         noResultEl.style.display = (q && !anyMatch) ? "block" : "none";
@@ -374,26 +440,26 @@
         var q = (els.searchInput.value || "").trim().toLowerCase();
 
         var dayEvents = getEventsOnDate(selectedDate)
-            .filter(function (ev) { return !q || formatSearch(ev).includes(q); })
-            .sort(function (a, b) { return (a.start || "").localeCompare(b.start || ""); });
+            .filter(function(ev) { return !q || formatSearch(ev).indexOf(q) !== -1; })
+            .sort(function(a, b) { return (a.start || "").localeCompare(b.start || ""); });
 
         if (!dayEvents.length) {
             selectedContainer.innerHTML = '<div class="day-item">No events for this day.</div>';
         } else {
-            dayEvents.forEach(function (ev) {
+            dayEvents.forEach(function(ev) {
                 selectedContainer.appendChild(createEventCard(ev, false));
             });
         }
 
         var upcoming = events
-            .filter(function (ev) { return ev.date > selectedDate; })
-            .sort(function (a, b) { return a.date.localeCompare(b.date); })
+            .filter(function(ev) { return ev.date > selectedDate; })
+            .sort(function(a, b) { return a.date.localeCompare(b.date); })
             .slice(0, 5);
 
         if (!upcoming.length) {
             upcomingContainer.innerHTML = '<div class="day-item">No upcoming events.</div>';
         } else {
-            upcoming.forEach(function (ev) {
+            upcoming.forEach(function(ev) {
                 upcomingContainer.appendChild(createEventCard(ev, true));
             });
         }
@@ -431,11 +497,14 @@
                 '</div>' +
             '</div>';
 
-        item.querySelector(".edit-btn").addEventListener("click", function (e) {
-            e.stopPropagation(); openModalForEdit(ev.id);
+        item.querySelector(".edit-btn").addEventListener("click", function(e) {
+            e.stopPropagation();
+            openModalForEdit(ev.id);
         });
-        item.querySelector(".delete-btn").addEventListener("click", function (e) {
-            e.stopPropagation(); editingId = ev.id; onDelete();
+        item.querySelector(".delete-btn").addEventListener("click", function(e) {
+            e.stopPropagation();
+            editingId = ev.id;
+            onDelete();
         });
 
         return item;
@@ -461,8 +530,15 @@
     }
 
     function openModalForEdit(id) {
-        var ev = events.find(function (e) { return e.id === id; });
+        var ev = null;
+        for (var i = 0; i < events.length; i++) {
+            if (events[i].id === id) {
+                ev = events[i];
+                break;
+            }
+        }
         if (!ev) return;
+
         editingId = id;
         els.deleteBtn.hidden = false;
         els.modalTitle.textContent = "Edit event";
@@ -498,40 +574,58 @@
         var ev = draftFromForm();
         if (!ev.title || !ev.date) return toast("Please fill required fields");
         if (ev.endDate && ev.endDate < ev.date) return toast("End date cannot be before start date");
-        if ((ev.start && !ev.end) || (!ev.start && ev.end))
+        if ((ev.start && !ev.end) || (!ev.start && ev.end)) {
             return toast("If you set time, set both Start and End");
-        if (ev.date === ev.endDate && ev.start && ev.end && ev.end <= ev.start)
+        }
+        if (ev.date === ev.endDate && ev.start && ev.end && ev.end <= ev.start) {
             return toast("End time must be after start time");
+        }
 
         var conflicts = detectConflicts(ev, editingId);
         els.conflictBox.hidden = conflicts.length === 0;
         if (conflicts.length) {
-            var sample = conflicts.slice(0, 2).map(function (e) {
+            var sample = conflicts.slice(0, 2).map(function(e) {
                 return "• " + e.title + " (" + e.date + " " + e.start + "-" + e.end + ")";
             }).join("\n");
             if (!confirm("Conflict detected with:\n" + sample + "\n\nSave anyway?")) return;
         }
 
-        var idx = events.findIndex(function (e) { return e.id === ev.id; });
-        if (idx >= 0) events[idx] = ev; else events.push(ev);
+        var idx = -1;
+        for (var i = 0; i < events.length; i++) {
+            if (events[i].id === ev.id) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx >= 0) events[idx] = ev;
+        else events.push(ev);
+
         saveEvents(events);
 
         selectedDate = ev.date;
         selectedEventId = ev.id;
         viewDate = new Date(ev.date + "T00:00:00");
-        render(); renderDayPanel(); closeModal();
+        render();
+        renderDayPanel();
+        closeModal();
         toast("Saved");
         checkPopupReminders();
-        if (ev.remindMode !== "off" && ev.remindMode !== "popup") checkPassiveReminders();
+        if (ev.remindMode !== "off" && ev.remindMode !== "popup") {
+            checkPassiveReminders();
+        }
     }
 
     function onDelete() {
         if (!editingId) return;
         if (!confirm("Delete this event?")) return;
-        events = events.filter(function (e) { return e.id !== editingId; });
+
+        events = events.filter(function(e) { return e.id !== editingId; });
         saveEvents(events);
+
         if (selectedEventId === editingId) selectedEventId = null;
-        render(); renderDayPanel(); closeModal();
+        render();
+        renderDayPanel();
+        closeModal();
         toast("Deleted");
     }
 
@@ -548,10 +642,10 @@
     // ─── EXPORT ──────────────────────────────────────────────────────────────
     function exportEvents() {
         if (!events.length) return toast("No events to export!");
-        var sorted = events.slice().sort(function (a, b) {
+        var sorted = events.slice().sort(function(a, b) {
             return a.date.localeCompare(b.date);
         });
-        var content = sorted.map(function (ev, i) {
+        var content = sorted.map(function(ev, i) {
             var time = "All day";
             if (ev.start && ev.end) {
                 time = (ev.endDate && ev.endDate !== ev.date)
@@ -575,37 +669,40 @@
 
     // ─── IMPORT ──────────────────────────────────────────────────────────────
     function initImportModal() {
-        els.importCloseBtn.addEventListener("click", function () {
+        els.importCloseBtn.addEventListener("click", function() {
             els.importModal.close();
         });
-        els.importCancelBtn.addEventListener("click", function () {
+        els.importCancelBtn.addEventListener("click", function() {
             els.importModal.close();
         });
 
-        els.importFileInput.addEventListener("change", function (e) {
+        els.importFileInput.addEventListener("change", function(e) {
             var file = e.target.files[0];
             if (!file) return;
             els.importError.hidden = true;
             els.importConfirmBtn.disabled = true;
 
             var reader = new FileReader();
-            reader.onload = function () {
+            reader.onload = function() {
                 try {
                     var data = JSON.parse(reader.result);
                     if (!Array.isArray(data)) throw new Error("Not an array");
-                    /* Basic validation: each item needs at least title + date */
-                    var valid = data.filter(function (item) {
-                        return item && typeof item.title === "string" && item.title.trim() &&
-                               typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date);
+
+                    var valid = data.filter(function(item) {
+                        return item &&
+                            typeof item.title === "string" && item.title.trim() &&
+                            typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date);
                     });
+
                     if (!valid.length) throw new Error("No valid events found");
-                    /* Assign IDs to imported events that lack them */
-                    valid.forEach(function (item) {
+
+                    valid.forEach(function(item) {
                         if (!item.id) item.id = safeUUID();
                         if (!item.endDate) item.endDate = item.date;
                         if (!item.remindMode) item.remindMode = "off";
                         if (!item.color) item.color = "default";
                     });
+
                     importParsed = valid;
                     els.importConfirmBtn.disabled = false;
                     els.importError.hidden = true;
@@ -618,14 +715,16 @@
             reader.readAsText(file);
         });
 
-        els.importConfirmBtn.addEventListener("click", function () {
+        els.importConfirmBtn.addEventListener("click", function() {
             if (!importParsed.length) return;
+            var count = importParsed.length;
             events = events.concat(importParsed);
             saveEvents(events);
             els.importModal.close();
             importParsed = [];
-            render(); renderDayPanel();
-            toast(importParsed.length + " events imported!");
+            render();
+            renderDayPanel();
+            toast(count + " event" + (count !== 1 ? "s" : "") + " imported!");
         });
     }
 
@@ -640,30 +739,34 @@
     function checkPopupReminders() {
         var todayKey = toDateKey(new Date());
         var seen = {};
-        try { seen = JSON.parse(localStorage.getItem(POPUP_SEEN_KEY) || "{}"); }
-        catch (e) { seen = {}; }
+        try {
+            seen = JSON.parse(localStorage.getItem(POPUP_SEEN_KEY) || "{}");
+        } catch (e) {
+            seen = {};
+        }
         if (seen[todayKey]) return;
 
         var tomorrowMs = new Date(todayKey + "T00:00:00").getTime() + 86400000;
         var tomorrowKey = toDateKey(new Date(tomorrowMs));
-        var list = []
-            .concat(
-                getEventsOnDate(todayKey)
-                    .filter(function (e) { return e.remindMode === "popup"; })
-                    .map(function (e) { return { e: e, when: "Today" }; })
-            )
-            .concat(
-                getEventsOnDate(tomorrowKey)
-                    .filter(function (e) { return e.remindMode === "popup"; })
-                    .map(function (e) { return { e: e, when: "Tomorrow" }; })
-            );
+
+        var todayPopups = getEventsOnDate(todayKey).filter(function(e) {
+            return e.remindMode === "popup";
+        }).map(function(e) { return { e: e, when: "Today" }; });
+
+        var tomorrowPopups = getEventsOnDate(tomorrowKey).filter(function(e) {
+            return e.remindMode === "popup";
+        }).map(function(e) { return { e: e, when: "Tomorrow" }; });
+
+        var list = todayPopups.concat(tomorrowPopups);
 
         if (!list.length) return;
-        var lines = list.slice(0, 6).map(function (x) {
+
+        var lines = list.slice(0, 6).map(function(x) {
             return "• " + x.e.title + " (" + x.when + ")";
         });
         var extra = list.length > 6 ? "\n+" + (list.length - 6) + " more" : "";
         alert("🔔 Reminder\n\n" + lines.join("\n") + extra);
+
         seen[todayKey] = true;
         localStorage.setItem(POPUP_SEEN_KEY, JSON.stringify(seen));
     }
@@ -675,7 +778,7 @@
 
     function getEventsOnDate(dateKey) {
         var d = new Date(dateKey + "T00:00:00");
-        return events.filter(function (ev) {
+        return events.filter(function(ev) {
             var s = new Date(ev.date + "T00:00:00");
             var e = ev.endDate ? new Date(ev.endDate + "T00:00:00") : s;
             return d >= s && d <= e;
@@ -686,18 +789,21 @@
         if (!candidate.start || !candidate.end) return [];
         var cs = new Date(candidate.date + "T" + candidate.start);
         var ce = new Date((candidate.endDate || candidate.date) + "T" + candidate.end);
-        return events
-            .filter(function (e) { return e.id !== excludeId && e.start && e.end; })
-            .filter(function (e) {
-                var es = new Date(e.date + "T" + e.start);
-                var ee = new Date((e.endDate || e.date) + "T" + e.end);
-                return cs < ee && es < ce;
-            });
+
+        return events.filter(function(e) {
+            if (e.id === excludeId || !e.start || !e.end) return false;
+            var es = new Date(e.date + "T" + e.start);
+            var ee = new Date((e.endDate || e.date) + "T" + e.end);
+            return cs < ee && es < ce;
+        });
     }
 
     function updateConflictWarning(excludeId) {
         var d = draftFromForm();
-        if (!d.date || !d.start || !d.end) { els.conflictBox.hidden = true; return; }
+        if (!d.date || !d.start || !d.end) {
+            els.conflictBox.hidden = true;
+            return;
+        }
         els.conflictBox.hidden = detectConflicts(d, excludeId).length === 0;
     }
 
@@ -706,7 +812,9 @@
             var raw = localStorage.getItem(STORAGE_KEY);
             var items = raw ? JSON.parse(raw) : [];
             return Array.isArray(items) ? items : [];
-        } catch (e) { return []; }
+        } catch (e) {
+            return [];
+        }
     }
 
     function saveEvents(list) {
@@ -725,9 +833,10 @@
     }
 
     function safeUUID() {
-        return (crypto && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : String(Date.now()) + "_" + Math.random().toString(16).slice(2);
+        if (typeof crypto !== "undefined" && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return String(Date.now()) + "_" + Math.random().toString(16).slice(2);
     }
 
     function escapeHtml(s) {
@@ -745,21 +854,26 @@
         if (!el) {
             el = document.createElement("div");
             el.id = "toast";
-            Object.assign(el.style, {
-                position: "fixed", left: "50%", bottom: "18px",
-                transform: "translateX(-50%)",
-                background: "rgba(0,0,0,.78)", color: "#fff",
-                padding: "10px 12px", borderRadius: "999px",
-                fontWeight: "900", fontSize: "12px",
-                zIndex: "9999", maxWidth: "calc(100% - 24px)",
-                textAlign: "center", transition: "opacity 0.3s"
-            });
+            el.style.position = "fixed";
+            el.style.left = "50%";
+            el.style.bottom = "18px";
+            el.style.transform = "translateX(-50%)";
+            el.style.background = "rgba(0,0,0,.78)";
+            el.style.color = "#fff";
+            el.style.padding = "10px 12px";
+            el.style.borderRadius = "999px";
+            el.style.fontWeight = "900";
+            el.style.fontSize = "12px";
+            el.style.zIndex = "9999";
+            el.style.maxWidth = "calc(100% - 24px)";
+            el.style.textAlign = "center";
+            el.style.transition = "opacity 0.3s";
             document.body.appendChild(el);
         }
         el.textContent = msg;
         el.style.opacity = "1";
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { el.style.opacity = "0"; }, 2400);
+        toastTimer = setTimeout(function() { el.style.opacity = "0"; }, 2400);
     }
 
     function initTheme() {
@@ -769,7 +883,7 @@
             document.body.classList.add("dark");
             btn.textContent = "☀️ Light";
         }
-        btn.addEventListener("click", function () {
+        btn.addEventListener("click", function() {
             document.body.classList.toggle("dark");
             var isDark = document.body.classList.contains("dark");
             btn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
