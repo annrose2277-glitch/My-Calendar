@@ -14,36 +14,6 @@
         dayLabel:       $("dayLabel"),
         selectedEvents: $("selectedEvents"),
         upcomingEvents: $("upcomingEvents"),
-        feature
-        noResults: $("noResults"),
-
-        addBtn: $("addBtn"),
-        editBtn: $("editBtn"),
-        deleteSideBtn: $("deleteSideBtn"),
-        exportBtn: $("exportBtn"),
-        clearAllBtn: $("clearAllBtn"),
-
-        modal: $("eventModal"),
-        eventForm: $("eventForm"),
-        closeBtn: $("closeBtn"),
-        cancelBtn: $("cancelBtn"),
-        deleteBtn: $("deleteBtn"),
-
-        modalTitle: $("modalTitle"),
-        modalSub: $("modalSub"),
-
-        idInput: $("idInput"),
-        titleInput: $("titleInput"),
-        dateInput: $("dateInput"),
-        endDateInput: $("endDateInput"),
-        startInput: $("startInput"),
-        endInput: $("endInput"),
-        descInput: $("descInput"),
-        remindInput: $("remindInput"),
-        colorInput: $("colorInput"),
-
-        conflictBox: $("conflictBox"),
-
         addBtn:         $("addBtn"),
         editBtn:        $("editBtn"),
         deleteSideBtn:  $("deleteSideBtn"),
@@ -71,16 +41,12 @@
         notifBanner:    $("notifBanner"),
         notifAllowBtn:  $("notifAllowBtn"),
         notifDismissBtn:$("notifDismissBtn"),
-        feature
-        main
-
         importModal:    $("importModal"),
         importCloseBtn: $("importCloseBtn"),
         importCancelBtn:$("importCancelBtn"),
         importConfirmBtn:$("importConfirmBtn"),
         importFileInput:$("importFileInput"),
         importError:    $("importError")
-        main
     };
 
     var STORAGE_KEY          = "calendra_lite_events_v2";
@@ -339,38 +305,11 @@
         });
         els.closeBtn.addEventListener("click", closeModal);
         els.cancelBtn.addEventListener("click", closeModal);
-          feature
-
-        // Auto-suggest titles while typing
-        els.titleInput.addEventListener("input", () => {
-            const { titleFrequency } = analyzeEventPatterns();
-            const input = normalizeStr(els.titleInput.value);
-
-            const suggestions = Object.keys(titleFrequency)
-                .filter(title => normalizeStr(title).startsWith(input))
-                .sort((a, b) => titleFrequency[b] - titleFrequency[a]);
-
-            if (suggestions.length > 0 && input.length > 0) {
-                els.titleInput.setAttribute("placeholder", `Suggested: ${suggestions[0]}`);
-            }
-        });
-
-        els.eventForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            onSave();
-        });
-
-
         els.backdrop.addEventListener("click", closeModal);
-        feature
-        els.eventForm.addEventListener("submit", e => { e.preventDefault(); onSave(); });
-        main
-
         els.eventForm.addEventListener("submit", function(e) {
             e.preventDefault();
             onSave();
         });
-        main
         els.deleteBtn.addEventListener("click", onDelete);
 
         ["dateInput", "endDateInput", "startInput", "endInput"].forEach(function(id) {
@@ -398,16 +337,7 @@
         while (cells.length % 7 !== 0) cells.push({ empty: true });
         while (cells.length < 42) cells.push({ empty: true });
 
-        feature
-        feature
-        const q = normalizeStr(els.searchInput.value).trim();
-
-
-        const q = (els.searchInput.value || "").trim().toLowerCase();
-        main
-
         var q = (els.searchInput.value || "").trim().toLowerCase();
-        main
         els.grid.innerHTML = "";
 
         cells.forEach(function(cellData) {
@@ -481,18 +411,6 @@
             els.grid.appendChild(cell);
         });
 
-        feature
-        feature
-        // "No results" message for search
-        if (q && !anyMatch) {
-            els.noResults.style.display = "block";
-        } else {
-            els.noResults.style.display = "none";
-        }
-
-        let noResultEl = document.getElementById("noResults");
-        if (!noResultEl) { noResultEl = document.createElement("div"); noResultEl.id = "noResults"; Object.assign(noResultEl.style, { textAlign: "center", padding: "10px", fontWeight: "bold", color: "red" }); els.grid.parentNode.appendChild(noResultEl); }
-
         var noResultEl = document.getElementById("noResults");
         if (!noResultEl) {
             noResultEl = document.createElement("div");
@@ -503,65 +421,14 @@
             noResultEl.style.color = "red";
             els.grid.parentNode.appendChild(noResultEl);
         }
-        main
         noResultEl.style.display = (q && !anyMatch) ? "block" : "none";
         if (q && !anyMatch) noResultEl.textContent = "No events found";
-        main
     }
 
     // ─── RENDER DAY PANEL ────────────────────────────────────────────────────
     function renderDayPanel() {
-        feature
-        const selectedContainer = els.selectedEvents;
-        const upcomingContainer = els.upcomingEvents;
-        feature
-
-        selectedContainer.innerHTML = "";
-        upcomingContainer.innerHTML = "";
-
-        const selected = new Date(selectedDate + "T00:00:00");
-
-        els.dayLabel.textContent = selected.toLocaleDateString(undefined, {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        });
-
-        const q = normalizeStr(els.searchInput.value).trim();
-
-        // ===== SELECTED DAY EVENTS =====
-        const dayEvents = getEventsOnDate(selectedDate)
-            .filter(ev => !q || formatSearch(ev).includes(q))
-            .sort((a, b) => (a.start || "").localeCompare(b.start || ""));
-
-        if (!dayEvents.length) {
-            selectedContainer.innerHTML = `<div class="day-item">No events for this day.</div>`;
-        } else {
-            dayEvents.forEach(ev => {
-                const item = createEventCard(ev);
-                selectedContainer.appendChild(item);
-            });
-        }
-
-        // ===== UPCOMING EVENTS =====
-        const upcoming = events
-            .filter(ev => ev.date > selectedDate)
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(0, 5);
-
-        if (!upcoming.length) {
-            upcomingContainer.innerHTML = `<div class="day-item">No upcoming events.</div>`;
-        } else {
-            upcoming.forEach(ev => {
-                const item = createEventCard(ev, true);
-                upcomingContainer.appendChild(item);
-            });
-
-
         var selectedContainer = els.selectedEvents;
         var upcomingContainer = els.upcomingEvents;
-        main
         selectedContainer.innerHTML = "";
         upcomingContainer.innerHTML = "";
 
@@ -592,64 +459,15 @@
         if (!upcoming.length) {
             upcomingContainer.innerHTML = '<div class="day-item">No upcoming events.</div>';
         } else {
-          feature
-            upcoming.forEach(ev => upcomingContainer.appendChild(createEventCard(ev, true)));
-        main
-
             upcoming.forEach(function(ev) {
                 upcomingContainer.appendChild(createEventCard(ev, true));
             });
-        main
         }
     }
 
     function createEventCard(ev, showDate) {
         var item = document.createElement("div");
         item.className = "day-item";
-        feature
-
-        if (ev.color && ev.color !== "default") {
-            item.dataset.color = ev.color;
-        }
-
-        let tag = "All day";
-        if (ev.start && ev.end) {
-            tag = `${ev.start} – ${ev.end}`;
-        }
-
-        const dateText = showDate ? `<div class="meta">${ev.date}</div>` : "";
-
-        item.innerHTML = `
-            <div class="event-row">
-                <div class="event-info">
-                    <div class="title">${escapeHtml(ev.title)}</div>
-                    ${dateText}
-                    <div class="tag">${escapeHtml(tag)}</div>
-                </div>
-
-                <div class="event-actions">
-                    <button class="pill-btn edit-btn">Edit</button>
-                    <button class="pill-btn delete-btn">Delete</button>
-                </div>
-            </div>
-        `;
-
-        item.querySelector(".edit-btn").addEventListener("click", (e) => {
-            e.stopPropagation();
-            openModalForEdit(ev.id);
-        });
-
-        item.querySelector(".delete-btn").addEventListener("click", (e) => {
-            e.stopPropagation();
-            editingId = ev.id;
-            onDelete();
-        });
-
-        return item;
-    }
-
-    // ---------- MODAL ----------
- 
         if (ev.color && ev.color !== "default") item.dataset.color = ev.color;
 
         var tag = "All day";
@@ -693,7 +511,6 @@
     }
 
     // ─── MODAL ───────────────────────────────────────────────────────────────
-        main
     function openModalForDate(dateKey) {
         editingId = null;
         els.deleteBtn.hidden = true;
@@ -812,28 +629,15 @@
         toast("Deleted");
     }
 
-        feature
-         feature
-    function showModal() {
-
     function showModal() {
         els.backdrop.hidden = false;
-        main
         els.modal.showModal();
     }
 
     function closeModal() {
-    feature
-        els.modal.close();
-    }
-
-    function showModal() { els.backdrop.hidden = false; els.modal.showModal(); }
-    function closeModal() { els.modal.close(); els.backdrop.hidden = true; }
-        main
         if (els.modal.open) els.modal.close();
         els.backdrop.hidden = true;
     }
-        main
 
     // ─── EXPORT ──────────────────────────────────────────────────────────────
     function exportEvents() {
@@ -862,103 +666,6 @@
         URL.revokeObjectURL(a.href);
         toast("Events exported!");
     }
-
-        feature
-        feature
-    // ---------- SEARCH / CONFLICTS ----------
-    function formatSearch(ev) {
-        return normalizeStr(ev.title + " " + (ev.description || ""));
-    }
-
-    function getEventsOnDate(dateKey) {
-        const d = new Date(dateKey + "T00:00:00");
-        return events.filter(ev => {
-            const eventStart = new Date(ev.date + "T00:00:00");
-            const eventEnd = ev.endDate ? new Date(ev.endDate + "T00:00:00") : eventStart;
-            return d >= eventStart && d <= eventEnd;
-        });
-    }
-
-    function detectConflicts(candidate, excludeId = null) {
-        if (!candidate.start || !candidate.end) return [];
-        const candidateStart = new Date(`${candidate.date}T${candidate.start}`);
-        const candidateEnd = new Date(`${candidate.endDate || candidate.date}T${candidate.end}`);
-
-        return events
-            .filter(e => e.id !== excludeId && e.start && e.end)
-            .filter(e => {
-                const existingStart = new Date(`${e.date}T${e.start}`);
-                const existingEnd = new Date(`${e.endDate || e.date}T${e.end}`);
-                return candidateStart < existingEnd && existingStart < candidateEnd;
-            });
-    }
-
-    function updateConflictWarning(excludeId = null) {
-        const d = draftFromForm();
-        if (!d.date || !d.start || !d.end) {
-            els.conflictBox.hidden = true;
-            return;
-        }
-        els.conflictBox.hidden = detectConflicts(d, excludeId).length === 0;
-    }
-
-    // ---------- SMART PATTERN ANALYSIS ----------
-    function analyzeEventPatterns() {
-        const titleFrequency = {};
-        const weekdayTimePatterns = {};
-
-        events.forEach(ev => {
-            // Count title usage
-            if (ev.title) {
-                titleFrequency[ev.title] = (titleFrequency[ev.title] || 0) + 1;
-            }
-
-            // Track weekday + time pattern
-            if (ev.start && ev.end) {
-                const weekday = new Date(ev.date + "T00:00:00").getDay();
-
-                if (!weekdayTimePatterns[weekday]) {
-                    weekdayTimePatterns[weekday] = {};
-                }
-
-                const timeKey = `${ev.start}-${ev.end}`;
-                weekdayTimePatterns[weekday][timeKey] =
-                    (weekdayTimePatterns[weekday][timeKey] || 0) + 1;
-            }
-        });
-
-        return { titleFrequency, weekdayTimePatterns };
-    }
-
-    // ---------- LOCAL STORAGE ----------
-    function loadEvents() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            const items = raw ? JSON.parse(raw) : [];
-            return Array.isArray(items) ? items : [];
-        } catch {
-            return [];
-        }
-    }
-
-    function saveEvents(list) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    }
-
-    // ---------- DATE HELPERS ----------
-    function toDateKey(d) {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${day}`;
-    }
-
-    function addMonths(d, n) {
-        return new Date(d.getFullYear(), d.getMonth() + n, 1);
-    }
-
-    // ---------- POPUP REMINDERS ----------
-
 
     // ─── IMPORT ──────────────────────────────────────────────────────────────
     function initImportModal() {
@@ -1028,9 +735,7 @@
         importParsed = [];
     }
 
-        main
     // ─── POPUP REMINDERS ─────────────────────────────────────────────────────
-        main
     function checkPopupReminders() {
         var todayKey = toDateKey(new Date());
         var seen = {};
@@ -1080,24 +785,6 @@
         });
     }
 
-        feature
-        feature
-    // ---------- UTILS ----------
-    function normalizeStr(str) {
-        return (str || "").toString().toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    }
-
-    function safeUUID() {
-        return (crypto && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : String(Date.now()) + "_" + Math.random().toString(16).slice(2);
-
-    function detectConflicts(candidate, excludeId = null) {
-        if (!candidate.start || !candidate.end) return [];
-        const cs = new Date(candidate.date + "T" + candidate.start), ce = new Date((candidate.endDate || candidate.date) + "T" + candidate.end);
-        return events.filter(e => e.id !== excludeId && e.start && e.end).filter(e => { const es = new Date(e.date + "T" + e.start), ee = new Date((e.endDate || e.date) + "T" + e.end); return cs < ee && es < ce; });
-        main
-
     function detectConflicts(candidate, excludeId) {
         if (!candidate.start || !candidate.end) return [];
         var cs = new Date(candidate.date + "T" + candidate.start);
@@ -1109,7 +796,6 @@
             var ee = new Date((e.endDate || e.date) + "T" + e.end);
             return cs < ee && es < ce;
         });
-        main
     }
 
     function updateConflictWarning(excludeId) {
