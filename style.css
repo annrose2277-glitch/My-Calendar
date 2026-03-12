@@ -285,7 +285,6 @@ h1{margin:0;font-size:16px; font-weight:700; letter-spacing:.2px; color:#514e6b;
   padding: 20px;
   font-weight: 700;
   color: var(--danger);
-  display: none;
   grid-column: 1 / -1;
 }
 

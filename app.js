@@ -316,11 +316,7 @@
         });
 
         // "No results" message for search
-        if (q && !anyMatch) {
-            els.noResults.style.display = "block";
-        } else {
-            els.noResults.style.display = "none";
-        }
+        els.noResults.hidden = !(q && !anyMatch);
     }
 
     function renderDayPanel() {
