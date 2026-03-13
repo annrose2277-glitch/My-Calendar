@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My-Calendar</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="icon" type="image/png" sizes="192x194" href="images/android-chrome-512x512.png">
+  <link rel="icon" type="image/png" href="images/android-chrome-512x512.png">
 </head>
+
 <body>
   <header class="topbar">
     <div class="brand">
@@ -17,16 +19,22 @@
     </div>
   </header>
 
+  <div id="notifBanner" class="notif-banner" hidden>
+    <span>🔔 Enable notifications to get reminders for your events — even when this tab is in the background.</span>
+    <div class="notif-banner-actions">
+      <button id="notifAllowBtn" class="btn primary" type="button">Enable Notifications</button>
+      <button id="notifDismissBtn" class="btn ghost" type="button">Dismiss</button>
+    </div>
+  </div>
+
   <main class="wrap">
     <section class="panel">
       <div class="panel-head">
         <div>
           <h2>Calendar</h2>
           <p class="muted">Click a date to view events. Select an event to Edit/Delete from the side.</p>
-
           <div class="monthbar">
             <button id="prevBtn" class="btn" type="button" aria-label="Previous month">←</button>
-            
             <div class="month-year-group">
               <select id="monthSelect" class="month-select" aria-label="Select month">
                 <option value="0">January</option>
@@ -42,15 +50,12 @@
                 <option value="10">November</option>
                 <option value="11">December</option>
               </select>
-
               <select id="yearSelect" class="year-select" aria-label="Select year"></select>
             </div>
-
             <button id="nextBtn" class="btn" type="button" aria-label="Next month">→</button>
             <button id="todayBtn" class="btn ghost" type="button">Today</button>
           </div>
         </div>
-
         <div class="head-right">
           <input id="searchInput" class="search" type="search" placeholder="Search events…" />
           <button id="themeToggle" class="btn ghost" type="button">🌙 Dark</button>
@@ -58,27 +63,28 @@
       </div>
 
       <div class="dow">
-        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        <div>Sun</div><div>Mon</div><div>Tue</div>
+        <div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
       </div>
 
+         master
       <div id="grid" class="grid" aria-label="Calendar grid"></div>
       <div id="noResults" class="no-results" hidden>No events found</div>
+
+      <div id="grid" class="grid"></div>
+        main
     </section>
 
     <aside class="panel side">
-      <!-- Selected Day -->
       <div class="panel-head">
         <h2>Selected Day</h2>
         <p id="dayLabel" class="muted">—</p>
       </div>
-
       <div id="selectedEvents" class="day-list"></div>
 
-      <!-- Upcoming Events -->
       <div class="panel-head upcoming-heading">
         <h2>Upcoming Events</h2>
       </div>
-
       <div id="upcomingEvents" class="day-list"></div>
 
       <div class="panel-foot">
@@ -86,51 +92,52 @@
         <button id="editBtn" class="btn" type="button">Edit</button>
         <button id="deleteSideBtn" class="btn danger" type="button">Delete</button>
         <button id="exportBtn" class="btn ghost" type="button">📥 Export</button>
-        <button id="clearAllBtn" class="btn clear-custom" type="button">
-          Clear All Events
-        </button>
+        <button id="importBtn" class="btn ghost" type="button">📤 Import</button>
+        <button id="clearAllBtn" class="btn clear-custom" type="button">Clear All Events</button>
       </div>
     </aside>
   </main>
 
   <div id="backdrop" class="backdrop" hidden></div>
 
-  <!-- Modal -->
-  <dialog id="eventModal" class="modal" aria-labelledby="modalTitle">
-    <form id="eventForm" class="modal-form" method="dialog">
+  <dialog id="eventModal" class="modal">
+    <form id="eventForm" method="dialog">
+
       <div class="modal-head">
         <div>
           <div id="modalTitle" class="modal-title">New event</div>
           <div id="modalSub" class="modal-sub">—</div>
         </div>
-        <button id="closeBtn" class="btn ghost" type="button" aria-label="Close">✕</button>
+        <button id="closeBtn" class="btn ghost" type="button">✕</button>
       </div>
 
       <div class="form">
+        <input type="hidden" id="idInput">
+
         <label class="field">
-          <span>Event name *</span>
-          <input id="titleInput" required maxlength="60" placeholder="e.g., Birthday / Meeting" />
+          <span>Event name</span>
+          <input id="titleInput" required placeholder="Event name" maxlength="100">
         </label>
 
         <div class="row">
           <label class="field">
-            <span>Start date *</span>
-            <input id="dateInput" type="date" required />
+            <span>Start date</span>
+            <input id="dateInput" type="date" required>
           </label>
           <label class="field">
             <span>End date</span>
-            <input id="endDateInput" type="date" />
+            <input id="endDateInput" type="date">
           </label>
         </div>
 
         <div class="row">
           <label class="field">
-            <span>Start time (optional)</span>
-            <input id="startInput" type="time" />
+            <span>Start time</span>
+            <input id="startInput" type="time">
           </label>
           <label class="field">
-            <span>End time (optional)</span>
-            <input id="endInput" type="time" />
+            <span>End time</span>
+            <input id="endInput" type="time">
           </label>
         </div>
 
@@ -144,8 +151,12 @@
             <span>Reminder</span>
             <select id="remindInput">
               <option value="off">Off</option>
-              <option value="popup">Popup (Yesterday + Today)</option>
+              <option value="popup">Popup (day-of alert on open)</option>
+              <option value="60">🔔 Notify 1 hour before</option>
+              <option value="30">🔔 Notify 30 mins before</option>
+              <option value="15">🔔 Notify 15 mins before</option>
             </select>
+            <div class="hint">Passive (🔔) reminders fire as OS notifications even when the tab is backgrounded. Requires notification permission.</div>
           </label>
 
           <label class="field">
@@ -160,20 +171,40 @@
         </div>
 
         <div id="conflictBox" class="callout warn" hidden>
-          <b>Conflict detected</b>
-          <div class="muted">This overlaps with another event on the same day/time.</div>
+          ⚠️ Time conflict detected with another event.
         </div>
       </div>
 
       <div class="modal-foot">
         <button id="deleteBtn" class="btn danger" type="button" hidden>Delete</button>
-        <div class="spacer"></div>
         <button id="cancelBtn" class="btn ghost" type="button">Cancel</button>
-        <button id="saveBtn" class="btn primary" type="submit">Save</button>
+        <button class="btn primary" type="submit">Save</button>
       </div>
 
-      <input type="hidden" id="idInput" />
     </form>
+  </dialog>
+
+  <dialog id="importModal" class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Import Events</div>
+        <div class="modal-sub">Upload a JSON file to add events to your calendar.</div>
+      </div>
+      <button id="importCloseBtn" class="btn ghost" type="button">✕</button>
+    </div>
+
+    <div class="form">
+      <label class="field">
+        <span>Event file</span>
+        <input type="file" id="importFileInput" accept=".json">
+      </label>
+      <div id="importError" class="callout warn" hidden></div>
+    </div>
+
+    <div class="modal-foot">
+      <button id="importCancelBtn" class="btn ghost" type="button">Cancel</button>
+      <button id="importConfirmBtn" class="btn primary" type="button" disabled>Import</button>
+    </div>
   </dialog>
 
   <script src="app.js"></script>
