@@ -168,7 +168,17 @@ body.dark .panel.side h2 { color: #f1f5f9; }
 }
 .search:focus { box-shadow: 0 0 0 4px var(--focus); background: #ffffff; }
 
+        master
+.no-results {
+  text-align: center;
+  padding: 20px;
+  font-weight: 700;
+  color: var(--danger);
+  grid-column: 1 / -1;
+}
+
 .monthbar { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-top: 10px; }
+        main
 
 .month-label {
   min-width: 180px; text-align: center; font-weight: 700; letter-spacing: .3px;

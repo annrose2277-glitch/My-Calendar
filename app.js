@@ -411,6 +411,10 @@
             els.grid.appendChild(cell);
         });
 
+         master
+        // "No results" message for search
+        els.noResults.hidden = !(q && !anyMatch);
+
         var noResultEl = document.getElementById("noResults");
         if (!noResultEl) {
             noResultEl = document.createElement("div");
@@ -423,6 +427,7 @@
         }
         noResultEl.style.display = (q && !anyMatch) ? "block" : "none";
         if (q && !anyMatch) noResultEl.textContent = "No events found";
+        main
     }
 
     // ─── RENDER DAY PANEL ────────────────────────────────────────────────────
